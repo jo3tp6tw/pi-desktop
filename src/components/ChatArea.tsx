@@ -24,6 +24,8 @@ import {
   Eye,
   X,
   Trash2,
+  Monitor,
+  Server,
 } from 'lucide-react';
 import type { Message, SubagentTask, ToolCall } from '../types';
 import { SubagentCard } from './SubagentCard';
@@ -42,6 +44,12 @@ interface ChatAreaProps {
   conversationId?: string;
   modelInfo?: string;
   thinkingLevel?: string;
+  /** 目前對話所在的 SSH 主機名稱；未提供表示在本機執行 */
+  envLabel?: string;
+  /** 此環境已啟用的模型設定檔（可在對話中切換） */
+  profiles?: { id: string; name: string; subtitle: string; isDefault: boolean }[];
+  activeProfileId?: string;
+  onSelectProfile?: (profileId: string) => void;
   onOpenModelSettings?: () => void;
   /** 單一使用者訊息粒度操作回呼 */
   onCopyMessage?: (text: string) => void;
@@ -762,6 +770,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   conversationId,
   modelInfo,
   thinkingLevel,
+  envLabel,
+  profiles = [],
+  activeProfileId,
+  onSelectProfile,
   onOpenModelSettings,
   onCopyMessage,
   onSwitchBranch,
@@ -774,6 +786,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  // 模型設定檔切換選單
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(e.target as Node)) setProfileMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [profileMenuOpen]);
   // 使用者是否貼齊底部（決定是否自動跟隨新內容）
   const stickToBottomRef = useRef(true);
 
@@ -813,32 +836,101 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     <div className="flex-1 min-w-0 h-full flex flex-col bg-[#121214] text-zinc-100 overflow-hidden">
       {/* 頂部會話導航列 */}
       <header className="h-14 border-b border-[#27272a] px-4 flex items-center justify-between bg-[#141416] select-none">
-        <div
-          className="flex items-center text-xs text-zinc-500 font-mono truncate max-w-md select-text"
-          title={projectPath || projectName}
-        >
-          {projectPath || projectName}
+        <div className="flex items-center space-x-2 min-w-0">
+          {/* 執行環境標籤：本機或 SSH 主機（模型設定也依此環境而定） */}
+          {envLabel ? (
+            <span
+              title={`此對話的 pi 在遠端主機 ${envLabel} 上執行`}
+              className="shrink-0 flex items-center space-x-1 text-[11px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono"
+            >
+              <Server size={11} />
+              <span className="truncate max-w-[140px]">{envLabel}</span>
+            </span>
+          ) : (
+            <span
+              title="此對話的 pi 在本機執行"
+              className="shrink-0 flex items-center space-x-1 text-[11px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700/60 font-mono"
+            >
+              <Monitor size={11} />
+              <span>本機</span>
+            </span>
+          )}
+          <div
+            className="flex items-center text-xs text-zinc-500 font-mono truncate max-w-md select-text"
+            title={projectPath || projectName}
+          >
+            {projectPath || projectName}
+          </div>
         </div>
 
         <div className="flex items-center space-x-3 text-sm">
-          {/* 模型與推論參數設定按鈕 (簡潔乾淨圖示) */}
-          <button
-            onClick={onOpenModelSettings}
-            title="調整模型與細項參數 (Max Tokens, Thinking Effort 等)"
-            className="flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/60 text-zinc-200 transition text-xs font-medium group shadow-sm"
-          >
-            <Cpu size={13} className="text-indigo-400 group-hover:text-indigo-300 transition" />
-            <span className="font-mono text-zinc-300 truncate max-w-[180px]">
-              {modelInfo || '模型載入中'}
-            </span>
-            {thinkingLevel && thinkingLevel !== 'off' && (
-              <span className="flex items-center space-x-1 text-[11px] px-1.5 py-0.2 rounded bg-indigo-950/80 border border-indigo-800/60 text-indigo-300 font-mono">
-                <Brain size={11} className="text-indigo-400" />
-                <span>{thinkingLevel}</span>
+          {/* 模型設定檔切換：列出此環境已啟用的設定檔 */}
+          <div className="relative" ref={profileMenuRef}>
+            <button
+              onClick={() => setProfileMenuOpen((v) => !v)}
+              title={`切換「${envLabel || '本機'}」的模型設定檔`}
+              className={`flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 border text-zinc-200 transition text-xs font-medium group shadow-sm ${
+                envLabel ? 'border-cyan-600/50' : 'border-zinc-700/60'
+              }`}
+            >
+              <Cpu size={13} className={`${envLabel ? 'text-cyan-400 group-hover:text-cyan-300' : 'text-indigo-400 group-hover:text-indigo-300'} transition`} />
+              <span className="font-mono text-zinc-300 truncate max-w-[180px]">
+                {modelInfo || '模型載入中'}
               </span>
+              {thinkingLevel && thinkingLevel !== 'off' && (
+                <span className="flex items-center space-x-1 text-[11px] px-1.5 py-0.2 rounded bg-indigo-950/80 border border-indigo-800/60 text-indigo-300 font-mono">
+                  <Brain size={11} className="text-indigo-400" />
+                  <span>{thinkingLevel}</span>
+                </span>
+              )}
+              <ChevronDown size={12} className="text-zinc-400 group-hover:text-zinc-200 transition ml-0.5" />
+            </button>
+
+            {profileMenuOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-72 z-30 rounded-xl border border-zinc-700/80 bg-[#1c1c20] shadow-2xl py-1.5 text-xs">
+                <div className="px-3 py-1 text-[11px] text-zinc-500">
+                  「{envLabel || '本機'}」的模型設定檔
+                </div>
+                {profiles.length === 0 && (
+                  <div className="px-3 py-2 text-zinc-400">此環境還沒有啟用任何設定檔</div>
+                )}
+                {profiles.map((p) => {
+                  const active = p.id === activeProfileId;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        if (!active) onSelectProfile?.(p.id);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 flex items-start gap-2 hover:bg-zinc-800/80 transition ${active ? 'text-zinc-100' : 'text-zinc-300'}`}
+                    >
+                      <Check size={13} className={`mt-0.5 shrink-0 ${active ? 'text-indigo-400' : 'opacity-0'}`} />
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate font-medium">{p.name}</span>
+                          {p.isDefault && <span className="text-[10px] text-amber-300/90">預設</span>}
+                        </span>
+                        <span className="block truncate text-[11px] text-zinc-500 font-mono">{p.subtitle}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+                <div className="border-t border-zinc-800 mt-1.5 pt-1.5">
+                  <button
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      onOpenModelSettings?.();
+                    }}
+                    className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-zinc-300 hover:bg-zinc-800/80 transition"
+                  >
+                    <Sliders size={13} className="text-zinc-400" />
+                    <span>管理模型設定檔…</span>
+                  </button>
+                </div>
+              </div>
             )}
-            <Sliders size={12} className="text-zinc-400 group-hover:text-zinc-200 transition ml-0.5" />
-          </button>
+          </div>
 
           <div className="flex items-center space-x-1.5 pl-2 border-l border-zinc-800 text-zinc-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>

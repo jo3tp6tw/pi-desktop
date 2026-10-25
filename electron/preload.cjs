@@ -8,6 +8,7 @@ const ALLOWED_PREFIXES = [
   'fs:',
   'core:',
   'model:',
+  'profile:',
   'dialog:',
   'shell:',
   'clipboard:',

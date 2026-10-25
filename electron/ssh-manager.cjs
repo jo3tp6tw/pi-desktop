@@ -253,7 +253,9 @@ class SshManager {
     });
   }
 
-  // 在遠端透過 Base64 + 標記安全執行一段 Node.js 函式並取回 JSON 結果
+  // 在遠端執行一段 Node.js 函式並以標記取回 JSON 結果。
+  // 程式碼經 stdin 傳給遠端 `node -`，不放在 ssh 命令列：Windows 的 ssh 傳遞約 2KB 以上的
+  // 命令列時引號會被破壞（遠端 bash 報 unexpected EOF），payload 中的金鑰也不會出現在遠端 ps。
   execRemoteNode(ssh, fnSource, payload = {}, timeoutMs = 20000) {
     return new Promise((resolve) => {
       const norm = this.normalizeSshConfig(ssh);
@@ -274,14 +276,12 @@ class SshManager {
 })();
 `.trim();
 
-      const b64 = Buffer.from(wrappedJs, 'utf-8').toString('base64');
-      const nodeCmd = `node -e "eval(Buffer.from('${b64}','base64').toString())"`;
       const shBody = [
         REMOTE_PATH_SETUP,
         'if command -v node >/dev/null 2>&1; then',
-        `  ${nodeCmd}`,
-        'elif command -v bash >/dev/null 2>&1; then',
-        `  bash -lc ${quotePosix(nodeCmd)}`,
+        '  exec node -',
+        'elif command -v bash >/dev/null 2>&1 && bash -lc "command -v node" >/dev/null 2>&1; then',
+        '  exec bash -lc "exec node -"',
         'else',
         '  echo "REMOTE_NODE_MISSING" >&2; exit 127',
         'fi',
@@ -296,10 +296,12 @@ class SshManager {
       let settled = false;
 
       const child = spawn('ssh', args, {
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['pipe', 'pipe', 'pipe'],
         env,
         windowsHide: true,
       });
+      child.stdin.on('error', () => {}); // 連線失敗時寫入會 EPIPE，結果由 close 事件回報
+      child.stdin.end(wrappedJs, 'utf-8');
 
       const timer = setTimeout(() => {
         if (settled) return;
@@ -353,6 +355,51 @@ class SshManager {
   /* ==========================================================================
    * 遠端操作 API
    * ========================================================================== */
+
+  // 讀取遠端主機自己的 ~/.pi/agent/models.json 與 settings.json（遠端 pi 實際使用的模型設定）
+  async readRemoteAgentConfig(ssh) {
+    const fnSource = `async () => {
+      const fs = require('fs');
+      const path = require('path');
+      const os = require('os');
+      const agentDir = path.join(os.homedir(), '.pi', 'agent');
+      const readJson = (file, fallback) => {
+        const p = path.join(agentDir, file);
+        if (!fs.existsSync(p)) return fallback;
+        try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch { return fallback; }
+      };
+      return {
+        agentDir,
+        modelsConfig: readJson('models.json', { providers: {} }),
+        settingsConfig: readJson('settings.json', {}),
+      };
+    }`;
+    const res = await this.execRemoteNode(ssh, fnSource, {});
+    if (!res.success) return res;
+    return { success: true, ...res.data };
+  }
+
+  // 寫入遠端主機的 ~/.pi/agent/models.json 與 settings.json
+  async writeRemoteAgentConfig(ssh, { modelsConfig, settingsConfig }) {
+    const fnSource = `async ({ modelsConfig, settingsConfig }) => {
+      const fs = require('fs');
+      const path = require('path');
+      const os = require('os');
+      const agentDir = path.join(os.homedir(), '.pi', 'agent');
+      fs.mkdirSync(agentDir, { recursive: true });
+      if (modelsConfig) {
+        // models.json 含 API Key，限定只有擁有者可讀寫
+        fs.writeFileSync(path.join(agentDir, 'models.json'), JSON.stringify(modelsConfig, null, 2), { encoding: 'utf-8', mode: 0o600 });
+      }
+      if (settingsConfig) {
+        fs.writeFileSync(path.join(agentDir, 'settings.json'), JSON.stringify(settingsConfig, null, 2), 'utf-8');
+      }
+      return { agentDir };
+    }`;
+    const res = await this.execRemoteNode(ssh, fnSource, { modelsConfig, settingsConfig });
+    if (!res.success) return res;
+    return { success: true, ...res.data };
+  }
 
   // 1. 測試連線 + 瀏覽遠端目錄 + 探索遠端既有 Pi 專案
   async browseRemoteDir(ssh, targetPath = '') {

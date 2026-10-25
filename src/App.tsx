@@ -11,7 +11,7 @@ import {
   Play, Pencil, CopyPlus, Download, FileCode, FileJson, Clipboard as ClipboardIcon,
   Trash2, FolderOpen, Plus, RefreshCw, FolderPlus, ChevronsUpDown, AlertTriangle, Server,
 } from 'lucide-react';
-import type { Project, Session, Message, FileItem, SubagentTask, ToolCall, CoreInfo, BashCommand, SessionLog, SshConfig } from './types';
+import type { Project, Session, Message, FileItem, SubagentTask, ToolCall, CoreInfo, BashCommand, SessionLog, SshConfig, ProfileState } from './types';
 import {
   appendAssistantDelta,
   appendToolPart,
@@ -19,6 +19,8 @@ import {
   updateToolPart,
   updateSubagentPart,
 } from './lib/messageParts';
+import { envOf } from './lib/environment';
+import { providerLabel } from './lib/modelProfiles';
 
 // 從 Pi 的 partialResult / result 取出純文字（content 為 text block 陣列）
 const textFromResult = (r: any): string | undefined => {
@@ -161,8 +163,14 @@ export const App: React.FC = () => {
   const messages = messagesByConv[activeConvId] || EMPTY_MESSAGES;
   const isLoading = !!loadingByConv[activeConvId];
   const bashCommands = bashByConv[activeConvId] || EMPTY_BASH;
-  const [modelInfo, setModelInfo] = useState<string>('連接中...');
-  const [thinkingLevel, setThinkingLevel] = useState<string>('medium');
+  // 模型 / 思考等級依對話分開記錄：不同對話可能在不同環境（本機 / SSH 主機），各自的 pi 用各自的模型
+  const [modelByConv, setModelByConv] = useState<Record<string, string>>({});
+  const [thinkingByConv, setThinkingByConv] = useState<Record<string, string>>({});
+  const modelInfo = modelByConv[activeConvId] || '連接中...';
+  const thinkingLevel = thinkingByConv[activeConvId] || 'medium';
+  // 對話目前使用的 pi 供應商（設定檔為 pui-<id>），用來標示對話正在用哪個設定檔
+  const [providerByConv, setProviderByConv] = useState<Record<string, string>>({});
+  const [profileState, setProfileState] = useState<ProfileState>({ profiles: [], envs: {} });
   const [coreInfo, setCoreInfo] = useState<CoreInfo | null>(null);
   const [isCoreManagerOpen, setIsCoreManagerOpen] = useState(false);
   const [isModelSettingsOpen, setIsModelSettingsOpen] = useState(false);
@@ -338,6 +346,9 @@ export const App: React.FC = () => {
     ipcRenderer.invoke('core:get-status').then((info: CoreInfo) => {
       if (info) setCoreInfo(info);
     });
+    ipcRenderer.invoke('profile:get-state').then((s: ProfileState) => {
+      if (s) setProfileState(s);
+    });
 
     const handleCoreInfo = (_event: any, info: CoreInfo) => {
       setCoreInfo(info);
@@ -356,9 +367,11 @@ export const App: React.FC = () => {
         convIdByFileRef.current[file] = convId;
       }
       const modelName = data.model?.name || data.model?.id || 'Connected Model';
-      if (!convId || convId === activeConvIdRef.current) {
-        setModelInfo(modelName);
-        if (data.thinkingLevel) setThinkingLevel(data.thinkingLevel);
+      if (convId) {
+        setModelByConv(prev => ({ ...prev, [convId]: modelName }));
+        if (data.thinkingLevel) setThinkingByConv(prev => ({ ...prev, [convId]: data.thinkingLevel }));
+        const provider = data.model?.provider;
+        if (provider) setProviderByConv(prev => ({ ...prev, [convId]: provider }));
       }
       pushSessionLog(`[Pi Connected] ${file || 'active session'} | 模型: ${modelName} | Session: ${data.sessionId || 'active'}`);
       pushSessionLog(`[Workspace] ${data.workspace}`);
@@ -1128,6 +1141,32 @@ export const App: React.FC = () => {
 
   const allSubagents = messages.flatMap(m => m.subagents || []);
 
+  // 目前對話所在環境已啟用的模型設定檔（對話頂端可切換）
+  const currentEnv = envOf(currentProject.ssh);
+  const envSelection = profileState.envs[currentEnv.key];
+  const envProfiles = (envSelection?.enabled || [])
+    .map(id => profileState.profiles.find(p => p.id === id))
+    .filter((p): p is NonNullable<typeof p> => !!p)
+    .map(p => ({
+      id: p.id,
+      name: p.name,
+      subtitle: `${p.kind === 'openai-compatible' ? 'OpenAI Compatible' : providerLabel(p.provider)} · ${p.modelId}`,
+      isDefault: envSelection?.defaultId === p.id,
+    }));
+  const activeProvider = providerByConv[activeConvId] || '';
+  const activeProfileId = activeProvider.startsWith('pui-') ? activeProvider.slice(4) : undefined;
+
+  const handleSelectProfile = async (profileId: string) => {
+    if (!ipcRenderer) return;
+    if (!activeConvId) {
+      showToast('請先開始一個對話');
+      return;
+    }
+    const res = await ipcRenderer.invoke('profile:select-for-conv', { convId: activeConvId, profileId });
+    if (!res?.success) showToast(`切換失敗：${res?.error || '未知錯誤'}`);
+    else if (res.deferred) showToast('會在對話啟動時套用此設定檔');
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#121214]">
       {/* 1. 左側欄：Projects / Sessions 樹狀清單 */}
@@ -1168,6 +1207,10 @@ export const App: React.FC = () => {
         conversationId={activeConvId}
         modelInfo={modelInfo}
         thinkingLevel={thinkingLevel}
+        envLabel={currentProject.ssh ? currentProject.ssh.label || currentProject.ssh.host : undefined}
+        profiles={envProfiles}
+        activeProfileId={activeProfileId}
+        onSelectProfile={handleSelectProfile}
         onOpenModelSettings={() => setIsModelSettingsOpen(true)}
         onCopyMessage={handleCopyMessage}
         onSwitchBranch={handleSwitchBranch}
@@ -1221,11 +1264,8 @@ export const App: React.FC = () => {
       <ModelSettingsModal
         isOpen={isModelSettingsOpen}
         onClose={() => setIsModelSettingsOpen(false)}
-        activeConvId={activeConvId}
-        onModelChanged={(name, level) => {
-          setModelInfo(name);
-          if (level) setThinkingLevel(level);
-        }}
+        activeEnv={currentEnv}
+        onStateChanged={setProfileState}
       />
 
       {/* 4c. SSH 遠端專案連線與目錄選擇器 Modal */}

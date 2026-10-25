@@ -1,324 +1,231 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ipcRenderer } from '../lib/ipc';
 import {
   Cpu,
-  Brain,
-  Sliders,
-  SlidersHorizontal,
-  Key,
-  Globe,
-  Layers,
-  Plus,
-  Trash2,
-  Check,
   X,
-  Save,
+  Plus,
+  Pencil,
+  Copy,
+  Trash2,
+  Star,
+  Monitor,
+  Server,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Info,
+  ArrowLeft,
   Eye,
-  EyeOff
+  EyeOff,
+  RotateCcw,
+  Save,
 } from 'lucide-react';
 import type {
-  ModelsConfig,
-  SettingsConfig,
-  ModelDetailConfig,
-  ProviderDetailConfig,
-  ThinkingLevel
+  ModelProfile,
+  ProfileState,
+  ModelCatalog,
+  ThinkingLevel,
+  SamplingParams,
 } from '../types';
+import { LOCAL_ENV, type PiEnvironment } from '../lib/environment';
+import {
+  COMPAT_DEFAULTS,
+  effectiveSpec,
+  findCatalogModel,
+  formatTokens,
+  providerLabel,
+  supportedThinkingLevels,
+  supportsSampling,
+} from '../lib/modelProfiles';
 
 interface ModelSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  activeConvId?: string;
-  onModelChanged?: (modelName: string, thinkingLevel: string) => void;
+  /** 目前對話所在的環境，開啟時預設顯示此環境分頁 */
+  activeEnv?: PiEnvironment;
+  /** 設定檔或環境啟用狀態變更後通知（讓對話頂端的切換選單更新） */
+  onStateChanged?: (state: ProfileState) => void;
 }
 
-const THINKING_LEVELS: { id: ThinkingLevel; label: string; desc: string }[] = [
-  { id: 'off', label: 'Off', desc: '關閉思考模式，適合快速回覆' },
-  { id: 'minimal', label: 'Minimal', desc: '極少思考 token' },
-  { id: 'low', label: 'Low', desc: '輕量思考' },
-  { id: 'medium', label: 'Medium', desc: '預設標準深度' },
-  { id: 'high', label: 'High', desc: '深度邏輯分析與代碼重構' },
-  { id: 'xhigh', label: 'Extra High', desc: '超深度推理（需模型支援）' },
-  { id: 'max', label: 'Max', desc: '全開最大推理預算' },
-];
+type Status = { text: string; type: 'success' | 'error' } | null;
 
-const PRESET_MAX_TOKENS = [4096, 8192, 16384, 32768];
-const PRESET_CONTEXT_WINDOWS = [
-  { label: '32K', value: 32768 },
-  { label: '64K', value: 65536 },
-  { label: '128K', value: 128000 },
-  { label: '200K', value: 200000 },
-];
+interface ApplyResult {
+  envKey: string;
+  success: boolean;
+  error?: string;
+  errors?: string[];
+  restart?: { restarted: number; deferred: number };
+}
+
+const EMPTY_STATE: ProfileState = { profiles: [], envs: {} };
+
+// 把套用結果整理成一行訊息
+function describeApply(results: ApplyResult[], envLabel: (k: string) => string): Status {
+  const problems: string[] = [];
+  for (const r of results) {
+    if (!r.success) problems.push(`「${envLabel(r.envKey)}」套用失敗：${r.error}`);
+    for (const e of r.errors || []) problems.push(`「${envLabel(r.envKey)}」${e}`);
+  }
+  if (problems.length) return { text: problems.join('；'), type: 'error' };
+  const deferred = results.reduce((n, r) => n + (r.restart?.deferred || 0), 0);
+  return {
+    text: deferred ? `已套用；${deferred} 個執行中的對話會在跑完後套用` : '已儲存並套用',
+    type: 'success',
+  };
+}
 
 export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
   isOpen,
   onClose,
-  activeConvId,
-  onModelChanged,
+  activeEnv = LOCAL_ENV,
+  onStateChanged,
 }) => {
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [environments, setEnvironments] = useState<PiEnvironment[]>([LOCAL_ENV]);
+  const [envKey, setEnvKey] = useState<string>(activeEnv.key);
+  const [state, setState] = useState<ProfileState>(EMPTY_STATE);
+  // 各環境自己安裝的 pi 模型目錄（版本可能不同），依環境分頁載入
+  const [catalogs, setCatalogs] = useState<Record<string, ModelCatalog>>({});
+  const catalog = catalogs[envKey] || null;
+  const [editing, setEditing] = useState<ModelProfile | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<Status>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // 設定原始資料
-  const [modelsConfig, setModelsConfig] = useState<ModelsConfig>({ providers: {} });
-  const [settingsConfig, setSettingsConfig] = useState<SettingsConfig>({});
+  const envLabel = (key: string) => environments.find((e) => e.key === key)?.label || key;
+  const envSel = state.envs[envKey] || { enabled: [], defaultId: null };
 
-  // 目前選中的 Provider 與 Model ID
-  const [selectedProviderKey, setSelectedProviderKey] = useState<string>('');
-  const [selectedModelId, setSelectedModelId] = useState<string>('');
-
-  // 細項表單狀態（綁定當前選取之模型）
-  const [maxTokens, setMaxTokens] = useState<number>(8192);
-  const [contextWindow, setContextWindow] = useState<number>(128000);
-  const [reasoning, setReasoning] = useState<boolean>(false);
-  const [temperature, setTemperature] = useState<number>(0.0);
-  const [topP, setTopP] = useState<number>(1.0);
-  const [currentThinkingLevel, setCurrentThinkingLevel] = useState<ThinkingLevel>('medium');
-
-  // Provider 端點設定狀態
-  const [providerName, setProviderName] = useState<string>('');
-  const [baseUrl, setBaseUrl] = useState<string>('');
-  const [apiKey, setApiKey] = useState<string>('');
-  const [showApiKey, setShowApiKey] = useState<boolean>(false);
-
-  // 新增模型與 Provider 互動
-  const [newModelInput, setNewModelInput] = useState<string>('');
-  const [isAddingModel, setIsAddingModel] = useState<boolean>(false);
-  const [applyToActiveSession, setApplyToActiveSession] = useState<boolean>(true);
-
-  // 載入設定
-  const loadConfig = async () => {
-    if (!ipcRenderer) return;
-    setLoading(true);
-    setStatusMessage(null);
-    try {
-      const res = await ipcRenderer.invoke('model:get-config');
-      if (res.success) {
-        const mCfg: ModelsConfig = res.modelsConfig || { providers: {} };
-        const sCfg: SettingsConfig = res.settingsConfig || {};
-
-        setModelsConfig(mCfg);
-        setSettingsConfig(sCfg);
-
-        const activeProvider = sCfg.defaultProvider || Object.keys(mCfg.providers || {})[0] || '';
-        const activeModel = sCfg.defaultModel || (activeProvider && mCfg.providers?.[activeProvider]?.models?.[0]?.id) || '';
-
-        setSelectedProviderKey(activeProvider);
-        setSelectedModelId(activeModel);
-        setCurrentThinkingLevel(sCfg.defaultThinkingLevel || 'medium');
-
-        if (activeProvider && mCfg.providers?.[activeProvider]) {
-          const prov = mCfg.providers[activeProvider];
-          setProviderName(prov.name || activeProvider);
-          setBaseUrl(prov.baseUrl || '');
-          setApiKey(prov.apiKey || '');
-
-          const mObj = prov.models?.find((m) => m.id === activeModel) || prov.models?.[0];
-          if (mObj) {
-            setMaxTokens(mObj.maxTokens || 8192);
-            setContextWindow(mObj.contextWindow || 128000);
-            setReasoning(Boolean(mObj.reasoning));
-            setTemperature(mObj.samplingParams?.temperature ?? 0.0);
-            setTopP(mObj.samplingParams?.top_p ?? 1.0);
-          }
-        }
-      } else {
-        setStatusMessage({ text: `載入設定失敗: ${res.error}`, type: 'error' });
-      }
-    } catch (e: any) {
-      setStatusMessage({ text: `錯誤: ${e.message}`, type: 'error' });
-    } finally {
-      setLoading(false);
-    }
+  const updateState = (next: ProfileState) => {
+    setState(next);
+    onStateChanged?.(next);
   };
 
   useEffect(() => {
-    if (isOpen) {
-      loadConfig();
-    }
+    if (!isOpen || !ipcRenderer) return;
+    setEnvKey(activeEnv.key);
+    setEditing(null);
+    setStatus(null);
+    ipcRenderer.invoke('profile:get-state').then((s: ProfileState) => setState(s || EMPTY_STATE));
+    ipcRenderer
+      .invoke('model:list-environments')
+      .then((list: PiEnvironment[]) => {
+        const envs = Array.isArray(list) && list.length ? list : [LOCAL_ENV];
+        setEnvironments(envs.some((e) => e.key === activeEnv.key) ? envs : [...envs, activeEnv]);
+      })
+      .catch(() => setEnvironments([LOCAL_ENV]));
+    // 僅在開啟時初始化
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  // 當切換 Provider
-  const handleSelectProvider = (key: string) => {
-    setSelectedProviderKey(key);
-    const prov = modelsConfig.providers?.[key];
-    if (prov) {
-      setProviderName(prov.name || key);
-      setBaseUrl(prov.baseUrl || '');
-      setApiKey(prov.apiKey || '');
-      const firstModel = prov.models?.[0]?.id || '';
-      setSelectedModelId(firstModel);
-
-      if (prov.models?.[0]) {
-        const mObj = prov.models[0];
-        setMaxTokens(mObj.maxTokens || 8192);
-        setContextWindow(mObj.contextWindow || 128000);
-        setReasoning(Boolean(mObj.reasoning));
-        setTemperature(mObj.samplingParams?.temperature ?? 0.0);
-        setTopP(mObj.samplingParams?.top_p ?? 1.0);
-      }
-    }
-  };
-
-  // 當切換 Model
-  const handleSelectModel = (mId: string) => {
-    setSelectedModelId(mId);
-    const prov = modelsConfig.providers?.[selectedProviderKey];
-    const mObj = prov?.models?.find((m) => m.id === mId);
-    if (mObj) {
-      setMaxTokens(mObj.maxTokens || 8192);
-      setContextWindow(mObj.contextWindow || 128000);
-      setReasoning(Boolean(mObj.reasoning));
-      setTemperature(mObj.samplingParams?.temperature ?? 0.0);
-      setTopP(mObj.samplingParams?.top_p ?? 1.0);
-    }
-  };
-
-  // 新增模型到當前 Provider
-  const handleAddModel = () => {
-    const trimmed = newModelInput.trim();
-    if (!trimmed || !selectedProviderKey) return;
-
-    const prov = modelsConfig.providers[selectedProviderKey];
-    if (!prov) return;
-
-    const existingModels = prov.models || [];
-    if (existingModels.some((m) => m.id === trimmed)) {
-      setSelectedModelId(trimmed);
-      setNewModelInput('');
-      setIsAddingModel(false);
-      return;
-    }
-
-    const newModelObj: ModelDetailConfig = {
-      id: trimmed,
-      name: trimmed.split('/').pop() || trimmed,
-      contextWindow: 128000,
-      maxTokens: 8192,
-      reasoning: false,
+  // 載入目前環境分頁的 pi 模型目錄（遠端透過 SSH 讀取該主機安裝的 pi）
+  useEffect(() => {
+    if (!isOpen || !ipcRenderer || catalogs[envKey]) return;
+    const env = environments.find((e) => e.key === envKey);
+    if (!env) return; // 環境清單尚未載入
+    let cancelled = false;
+    ipcRenderer.invoke('profile:get-catalog', { ssh: env.ssh }).then((c: ModelCatalog) => {
+      if (cancelled) return;
+      // 失敗不快取，下次開啟視窗會重試（例如遠端主機暫時連不上）
+      if (c?.success) setCatalogs((prev) => ({ ...prev, [envKey]: c }));
+      else setStatus({ text: `讀取「${env.label}」的 pi 模型目錄失敗：${c?.error}`, type: 'error' });
+    });
+    return () => {
+      cancelled = true;
     };
+  }, [isOpen, envKey, environments, catalogs]);
 
-    const updated = {
-      ...modelsConfig,
-      providers: {
-        ...modelsConfig.providers,
-        [selectedProviderKey]: {
-          ...prov,
-          models: [...existingModels, newModelObj],
-        },
-      },
-    };
-
-    setModelsConfig(updated);
-    setSelectedModelId(trimmed);
-    setMaxTokens(newModelObj.maxTokens || 8192);
-    setContextWindow(newModelObj.contextWindow || 128000);
-    setReasoning(false);
-    setNewModelInput('');
-    setIsAddingModel(false);
-  };
-
-  // 儲存設定
-  const handleSave = async () => {
+  // 變更環境的啟用清單 / 預設，立即套用
+  const setEnvSelection = async (enabled: string[], defaultId: string | null) => {
     if (!ipcRenderer) return;
-    setSaving(true);
-    setStatusMessage(null);
-
+    setBusy(true);
+    setStatus(null);
     try {
-      // 複製一份並更新當前編輯中的模型細項與 Provider 連線資訊
-      const nextModelsConfig: ModelsConfig = JSON.parse(JSON.stringify(modelsConfig));
-      if (selectedProviderKey && nextModelsConfig.providers[selectedProviderKey]) {
-        const prov = nextModelsConfig.providers[selectedProviderKey];
-        prov.name = providerName;
-        prov.baseUrl = baseUrl;
-        prov.apiKey = apiKey;
-
-        if (prov.models) {
-          const mIdx = prov.models.findIndex((m) => m.id === selectedModelId);
-          if (mIdx >= 0) {
-            prov.models[mIdx] = {
-              ...prov.models[mIdx],
-              maxTokens: Number(maxTokens) || 8192,
-              contextWindow: Number(contextWindow) || 128000,
-              reasoning,
-              samplingParams: {
-                ...(prov.models[mIdx].samplingParams || {}),
-                temperature: Number(temperature),
-                top_p: Number(topP),
-              },
-            };
-          }
-        }
+      const res = await ipcRenderer.invoke('profile:set-env', { envKey, enabled, defaultId });
+      if (!res.success) {
+        setStatus({ text: `套用失敗：${res.error}`, type: 'error' });
+        return;
       }
-
-      // 更新 settings.json
-      const nextSettingsConfig: SettingsConfig = {
-        ...settingsConfig,
-        defaultProvider: selectedProviderKey,
-        defaultModel: selectedModelId,
-        defaultThinkingLevel: currentThinkingLevel,
-      };
-
-      const res = await ipcRenderer.invoke('model:save-config', {
-        modelsConfig: nextModelsConfig,
-        settingsConfig: nextSettingsConfig,
-        applyToActiveSession,
-        convId: activeConvId,
-      });
-
-      if (res.success) {
-        setModelsConfig(nextModelsConfig);
-        setSettingsConfig(nextSettingsConfig);
-        setStatusMessage({ text: '設定已成功儲存並生效！', type: 'success' });
-        if (onModelChanged) {
-          onModelChanged(selectedModelId, currentThinkingLevel);
-        }
-        setTimeout(() => {
-          onClose();
-        }, 800);
-      } else {
-        setStatusMessage({ text: `儲存失敗: ${res.error}`, type: 'error' });
-      }
-    } catch (e: any) {
-      setStatusMessage({ text: `儲存異常: ${e.message}`, type: 'error' });
+      updateState(res.state);
+      setStatus(describeApply([res.applyResult], envLabel));
     } finally {
-      setSaving(false);
+      setBusy(false);
+    }
+  };
+
+  const toggleEnabled = (id: string) => {
+    const on = envSel.enabled.includes(id);
+    const enabled = on ? envSel.enabled.filter((x) => x !== id) : [...envSel.enabled, id];
+    setEnvSelection(enabled, envSel.defaultId && enabled.includes(envSel.defaultId) ? envSel.defaultId : enabled[0] || null);
+  };
+
+  const saveProfile = async (profile: ModelProfile) => {
+    if (!ipcRenderer) return;
+    setBusy(true);
+    setStatus(null);
+    try {
+      const res = await ipcRenderer.invoke('profile:save', { profile });
+      if (!res.success) {
+        setStatus({ text: `儲存失敗：${res.error}`, type: 'error' });
+        return;
+      }
+      updateState(res.state);
+      setEditing(null);
+      // 新建的設定檔若此環境還沒有任何啟用的，直接啟用並設為預設
+      if (!profile.id && envSel.enabled.length === 0) {
+        await setEnvSelection([res.profile.id], res.profile.id);
+        return;
+      }
+      setStatus(res.applyResults.length ? describeApply(res.applyResults, envLabel) : { text: '已儲存', type: 'success' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteProfile = async (id: string) => {
+    if (!ipcRenderer) return;
+    setBusy(true);
+    setConfirmDeleteId(null);
+    try {
+      const res = await ipcRenderer.invoke('profile:delete', { id });
+      if (!res.success) {
+        setStatus({ text: `刪除失敗：${res.error}`, type: 'error' });
+        return;
+      }
+      updateState(res.state);
+      setStatus(res.applyResults.length ? describeApply(res.applyResults, envLabel) : { text: '已刪除', type: 'success' });
+    } finally {
+      setBusy(false);
     }
   };
 
   if (!isOpen) return null;
 
-  const currentProvider = modelsConfig.providers?.[selectedProviderKey];
-  const modelList = currentProvider?.models || [];
-  const isCurrentDefault =
-    settingsConfig.defaultProvider === selectedProviderKey &&
-    settingsConfig.defaultModel === selectedModelId;
-
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-[#18181b] border border-zinc-700/80 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-        
+      <div className="bg-[#18181b] border border-zinc-700/80 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* 頂部標題 */}
         <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/60">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-950/70 border border-indigo-700/50 flex items-center justify-center text-indigo-400">
-              <Cpu size={17} />
-            </div>
+            {editing ? (
+              <button
+                onClick={() => setEditing(null)}
+                disabled={busy}
+                className="w-8 h-8 rounded-lg border border-zinc-700 flex items-center justify-center text-zinc-300 hover:bg-zinc-800 transition"
+                title="返回列表"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-indigo-950/70 border border-indigo-700/50 flex items-center justify-center text-indigo-400">
+                <Cpu size={17} />
+              </div>
+            )}
             <div>
-              <h2 className="text-base font-semibold text-zinc-100 flex items-center space-x-2">
-                <span>模型與推論設定</span>
-                {isCurrentDefault && (
-                  <span className="text-[11px] font-mono font-normal px-2 py-0.5 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800/60">
-                    預設啟用
-                  </span>
-                )}
+              <h2 className="text-base font-semibold text-zinc-100">
+                {editing ? (editing.id ? `編輯「${editing.name}」` : '新增模型設定檔') : '模型設定檔'}
               </h2>
               <p className="text-xs text-zinc-400">
-                微調 Token 長度、思考推理深度 (Thinking Effort) 與端點金鑰
+                {editing
+                  ? `模型清單來自「${envLabel(envKey)}」的 pi${catalog?.version ? ` v${catalog.version}` : ''}；只會顯示該模型支援的參數`
+                  : '每個環境可啟用多個設定檔，並指定一個作為新對話的預設'}
               </p>
             </div>
           </div>
@@ -330,370 +237,555 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
           </button>
         </div>
 
-        {/* 狀態訊息橫幅 */}
-        {statusMessage && (
+        {status && (
           <div
-            className={`px-6 py-2.5 text-xs flex items-center space-x-2 border-b ${
-              statusMessage.type === 'success'
+            className={`px-6 py-2.5 text-xs flex items-start space-x-2 border-b ${
+              status.type === 'success'
                 ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
                 : 'bg-rose-950/60 border-rose-800/60 text-rose-300'
             }`}
           >
-            {statusMessage.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-            <span>{statusMessage.text}</span>
+            {status.type === 'success' ? <CheckCircle2 size={14} className="shrink-0 mt-px" /> : <AlertCircle size={14} className="shrink-0 mt-px" />}
+            <span>{status.text}</span>
           </div>
         )}
 
-        {/* 主內容捲動區 */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm">
-          
-          {/* 區塊 1：選擇供應商與模型 */}
-          <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center space-x-1.5">
-                <SlidersHorizontal size={13} className="text-indigo-400" />
-                <span>模型選擇</span>
-              </label>
-              <span className="text-xs text-zinc-500 font-mono">
-                {selectedProviderKey} / {selectedModelId}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Provider 選擇 */}
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1.5 font-medium">供應商 (Provider)</label>
-                <select
-                  value={selectedProviderKey}
-                  onChange={(e) => handleSelectProvider(e.target.value)}
-                  className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-indigo-500 transition"
-                >
-                  {Object.keys(modelsConfig.providers || {}).map((k) => (
-                    <option key={k} value={k}>
-                      {modelsConfig.providers[k]?.name || k} ({k})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Model 選擇 */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs text-zinc-400 font-medium">模型 (Model ID)</label>
-                  {!isAddingModel && (
-                    <button
-                      onClick={() => setIsAddingModel(true)}
-                      className="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center space-x-1 transition"
-                    >
-                      <Plus size={12} />
-                      <span>新增模型</span>
-                    </button>
-                  )}
-                </div>
-
-                {!isAddingModel ? (
-                  <select
-                    value={selectedModelId}
-                    onChange={(e) => handleSelectModel(e.target.value)}
-                    className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-2 text-zinc-200 text-xs focus:outline-none focus:border-indigo-500 transition font-mono"
-                  >
-                    {modelList.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name || m.id}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="flex items-center space-x-1.5">
-                    <input
-                      type="text"
-                      placeholder="輸入新 Model ID，如 deepseek-ai/DeepSeek-V3"
-                      value={newModelInput}
-                      onChange={(e) => setNewModelInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddModel()}
-                      className="flex-1 bg-zinc-900 border border-indigo-500/70 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none"
-                      autoFocus
-                    />
-                    <button
-                      onClick={handleAddModel}
-                      className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition"
-                    >
-                      加入
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsAddingModel(false);
-                        setNewModelInput('');
-                      }}
-                      className="px-2 py-1.5 text-zinc-400 hover:text-zinc-200 rounded-lg text-xs transition"
-                    >
-                      取消
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 區塊 2：思考與推理設定 (Thinking / Reasoning Effort) */}
-          <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center space-x-1.5">
-                <Brain size={13} className="text-indigo-400" />
-                <span>思考與推理 (Thinking Effort)</span>
-              </label>
-
-              {/* 思考模式標記 */}
-              <label className="flex items-center space-x-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={reasoning}
-                  onChange={(e) => setReasoning(e.target.checked)}
-                  className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                />
-                <span className="text-xs text-zinc-400 font-medium">模型支援 Reasoning 標籤</span>
-              </label>
-            </div>
-
-            <div>
-              <div className="text-xs text-zinc-400 mb-2">思考深度等級 (Thinking Level)：</div>
-              <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                {THINKING_LEVELS.map((lvl) => {
-                  const isSelected = currentThinkingLevel === lvl.id;
-                  return (
-                    <button
-                      key={lvl.id}
-                      type="button"
-                      onClick={() => setCurrentThinkingLevel(lvl.id)}
-                      title={lvl.desc}
-                      className={`px-2 py-1.5 rounded-lg text-xs font-medium text-center transition border ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white border-indigo-500 shadow-sm'
-                          : 'bg-zinc-900/80 text-zinc-400 border-zinc-700/60 hover:bg-zinc-800 hover:text-zinc-200'
-                      }`}
-                    >
-                      {lvl.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] text-zinc-500 mt-2 font-mono">
-                {THINKING_LEVELS.find((l) => l.id === currentThinkingLevel)?.desc}
-              </p>
-            </div>
-          </div>
-
-          {/* 區塊 3：長度與視窗限制 (Token Limits) */}
-          <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-            <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center space-x-1.5">
-              <Layers size={13} className="text-indigo-400" />
-              <span>Token 限制與視窗容量</span>
-            </label>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Max Tokens */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400 font-medium">最大輸出 (Max Tokens)</span>
-                  <span className="text-xs text-zinc-500 font-mono">{maxTokens.toLocaleString()} tokens</span>
-                </div>
-                <input
-                  type="number"
-                  value={maxTokens}
-                  onChange={(e) => setMaxTokens(Math.max(256, parseInt(e.target.value) || 0))}
-                  className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-indigo-500"
-                />
-                <div className="flex items-center space-x-1 pt-1">
-                  {PRESET_MAX_TOKENS.map((val) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => setMaxTokens(val)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-mono transition border ${
-                        maxTokens === val
-                          ? 'bg-zinc-700 border-zinc-600 text-zinc-100'
-                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
-                      }`}
-                    >
-                      {val.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Context Window */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-400 font-medium">上下文容量 (Context Window)</span>
-                  <span className="text-xs text-zinc-500 font-mono">{contextWindow.toLocaleString()} tokens</span>
-                </div>
-                <input
-                  type="number"
-                  value={contextWindow}
-                  onChange={(e) => setContextWindow(Math.max(1024, parseInt(e.target.value) || 0))}
-                  className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-indigo-500"
-                />
-                <div className="flex items-center space-x-1 pt-1">
-                  {PRESET_CONTEXT_WINDOWS.map((preset) => (
-                    <button
-                      key={preset.value}
-                      type="button"
-                      onClick={() => setContextWindow(preset.value)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-mono transition border ${
-                        contextWindow === preset.value
-                          ? 'bg-zinc-700 border-zinc-600 text-zinc-100'
-                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 區塊 4：採樣參數 (Sampling Parameters) */}
-          <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-            <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center space-x-1.5">
-              <Sliders size={13} className="text-indigo-400" />
-              <span>採樣參數 (Sampling Params)</span>
-            </label>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Temperature */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-400 font-medium">隨機性 (Temperature)</span>
-                  <span className="font-mono text-indigo-400 font-semibold">{temperature.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={temperature}
-                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                  className="w-full accent-indigo-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-[11px] text-zinc-500">
-                  <span>0.0 (精確程式碼)</span>
-                  <span>1.0 (高創造力)</span>
-                </div>
-              </div>
-
-              {/* Top P */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-400 font-medium">核採樣 (Top P)</span>
-                  <span className="font-mono text-indigo-400 font-semibold">{topP.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1"
-                  step="0.05"
-                  value={topP}
-                  onChange={(e) => setTopP(parseFloat(e.target.value))}
-                  className="w-full accent-indigo-500 cursor-pointer"
-                />
-                <div className="flex justify-between text-[11px] text-zinc-500">
-                  <span>0.1 (聚焦)</span>
-                  <span>1.0 (完整)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 區塊 5：供應商連線與金鑰 (Provider Config) */}
-          <div className="space-y-3 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-            <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center space-x-1.5">
-              <Key size={13} className="text-indigo-400" />
-              <span>端點與認證 (Endpoint & Authentication)</span>
-            </label>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1 font-medium">Base URL</label>
-                <div className="relative flex items-center">
-                  <Globe size={13} className="absolute left-3 text-zinc-500" />
-                  <input
-                    type="text"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder="https://api.siliconflow.com/v1"
-                    className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1 font-medium">API Key</label>
-                <div className="relative flex items-center">
-                  <Key size={13} className="absolute left-3 text-zinc-500" />
-                  <input
-                    type={showApiKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg pl-8 pr-9 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-indigo-500"
-                  />
+        {editing ? (
+          <ProfileEditor
+            initial={editing}
+            catalog={catalog}
+            busy={busy}
+            onCancel={() => setEditing(null)}
+            onSave={saveProfile}
+          />
+        ) : (
+          <>
+            {/* 環境分頁：每個環境各自啟用設定檔 */}
+            <div className="px-6 py-2.5 border-b border-zinc-800 bg-zinc-950/40 flex items-center gap-1.5 overflow-x-auto">
+              {environments.map((env) => {
+                const selected = env.key === envKey;
+                const isRemote = !!env.ssh;
+                const sel = state.envs[env.key];
+                const def = state.profiles.find((p) => p.id === sel?.defaultId);
+                return (
                   <button
+                    key={env.key}
                     type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-2.5 p-1 text-zinc-500 hover:text-zinc-300"
+                    onClick={() => {
+                      setEnvKey(env.key);
+                      setStatus(null);
+                    }}
+                    disabled={busy}
+                    className={`shrink-0 flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                      selected
+                        ? isRemote
+                          ? 'bg-cyan-500/15 text-cyan-200 border-cyan-500/50'
+                          : 'bg-zinc-700/70 text-zinc-100 border-zinc-500/60'
+                        : 'bg-zinc-900/60 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:bg-zinc-800'
+                    }`}
                   >
-                    {showApiKey ? <EyeOff size={13} /> : <Eye size={13} />}
+                    {isRemote ? <Server size={12} className="text-cyan-400" /> : <Monitor size={12} />}
+                    <span className="truncate max-w-[140px]">{env.label}</span>
+                    <span className="text-[10px] font-normal text-zinc-500 truncate max-w-[120px]">
+                      · {def ? def.name : '未指定'}
+                    </span>
+                    {catalogs[env.key]?.version && (
+                      <span className="text-[10px] font-mono font-normal text-zinc-500">pi v{catalogs[env.key].version}</span>
+                    )}
+                    {env.key === activeEnv.key && (
+                      <span className="text-[10px] px-1 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800/60">
+                        目前對話
+                      </span>
+                    )}
                   </button>
+                );
+              })}
+              {busy && <RefreshCw size={12} className="animate-spin text-zinc-500 shrink-0 ml-1" />}
+            </div>
+
+            {/* 設定檔列表 */}
+            <div className="flex-1 overflow-y-auto">
+              {state.profiles.length === 0 && (
+                <div className="px-6 py-10 text-center text-sm text-zinc-400">
+                  <p className="text-zinc-200 font-medium mb-1">建立第一個模型設定檔</p>
+                  <p className="text-xs">選一個 pi 內建供應商或 OpenAI Compatible 端點，設定好參數後就能在各環境啟用。</p>
                 </div>
+              )}
+              {state.profiles.map((p) => {
+                const enabled = envSel.enabled.includes(p.id);
+                const isDefault = envSel.defaultId === p.id;
+                const spec = effectiveSpec(p, catalog);
+                const chips: string[] = [
+                  `上下文 ${formatTokens(spec.contextWindow)}`,
+                  `輸出 ${formatTokens(spec.maxTokens)}`,
+                ];
+                if (p.thinkingLevel) chips.push(`思考 ${p.thinkingLevel}`);
+                if (p.samplingParams?.temperature !== undefined && supportsSampling(spec.api)) {
+                  chips.push(`temp ${p.samplingParams.temperature}`);
+                }
+                const warning = spec.missing
+                  ? '此環境的 pi 沒有此模型'
+                  : p.kind === 'builtin' && !p.apiKey
+                    ? '尚未填寫 API Key'
+                    : null;
+                return (
+                  <div
+                    key={p.id}
+                    className={`px-6 py-3 border-b border-zinc-800/80 flex items-center gap-3 ${enabled ? 'bg-indigo-950/20' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      disabled={busy}
+                      onChange={() => toggleEnabled(p.id)}
+                      title={enabled ? `在「${envLabel(envKey)}」停用` : `在「${envLabel(envKey)}」啟用`}
+                      className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-zinc-100 truncate">{p.name}</span>
+                        {isDefault && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">
+                            預設
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-zinc-500 font-mono truncate">
+                        {p.kind === 'openai-compatible' ? 'OpenAI Compatible' : providerLabel(p.provider)} · {p.modelId}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {chips.map((c) => (
+                          <span key={c} className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">
+                            {c}
+                          </span>
+                        ))}
+                        {warning && (
+                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-950/50 text-amber-300 border border-amber-800/50">
+                            {warning}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {enabled && !isDefault && (
+                        <button
+                          onClick={() => setEnvSelection(envSel.enabled, p.id)}
+                          disabled={busy}
+                          title="設為此環境新對話的預設"
+                          className="p-1.5 rounded-md text-zinc-400 hover:text-amber-300 hover:bg-zinc-800 transition"
+                        >
+                          <Star size={14} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setEditing({ ...p })}
+                        disabled={busy}
+                        title="編輯"
+                        className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => setEditing({ ...p, id: '', name: `${p.name} 副本` })}
+                        disabled={busy}
+                        title="複製成新設定檔"
+                        className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
+                      >
+                        <Copy size={14} />
+                      </button>
+                      {confirmDeleteId === p.id ? (
+                        <button
+                          onClick={() => deleteProfile(p.id)}
+                          disabled={busy}
+                          className="px-2 py-1 rounded-md text-[11px] bg-rose-900/60 text-rose-200 border border-rose-700/60 hover:bg-rose-800/60 transition"
+                        >
+                          確認刪除
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(p.id)}
+                          disabled={busy}
+                          title="刪除"
+                          className="p-1.5 rounded-md text-zinc-400 hover:text-rose-300 hover:bg-zinc-800 transition"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="px-6 py-3">
+                <button
+                  onClick={() =>
+                    setEditing({ id: '', name: '', kind: 'builtin', modelId: '' })
+                  }
+                  disabled={busy}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-zinc-700 text-zinc-300 text-xs hover:bg-zinc-800/60 hover:border-zinc-600 transition"
+                >
+                  <Plus size={14} />
+                  <span>新增模型設定檔</span>
+                </button>
               </div>
             </div>
-          </div>
 
-        </div>
-
-        {/* 底部按鈕與狀態控制 */}
-        <div className="px-6 py-3.5 border-t border-zinc-800 bg-zinc-900/70 flex items-center justify-between">
-          <label className="flex items-center space-x-2 select-none cursor-pointer">
-            <input
-              type="checkbox"
-              checked={applyToActiveSession}
-              onChange={(e) => setApplyToActiveSession(e.target.checked)}
-              className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-            />
-            <span className="text-xs text-zinc-400">同時套用至目前視窗的對話 Session</span>
-          </label>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={onClose}
-              disabled={saving}
-              className="px-3.5 py-1.5 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition"
-            >
-              取消
-            </button>
-
-            <button
-              onClick={handleSave}
-              disabled={saving || loading}
-              className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium flex items-center space-x-1.5 transition shadow"
-            >
-              {saving ? (
-                <>
-                  <RefreshCw size={13} className="animate-spin" />
-                  <span>儲存中...</span>
-                </>
-              ) : (
-                <>
-                  <Save size={13} />
-                  <span>儲存並套用</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
+            <div className="px-6 py-2.5 border-t border-zinc-800 bg-zinc-900/70 text-[11px] text-zinc-500">
+              勾選即在「{envLabel(envKey)}」啟用；變更會立即寫入該環境的 ~/.pi/agent，並重新啟動其對話以套用。
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 };
+
+/* ==========================================================================
+ * 設定檔編輯表單
+ * ========================================================================== */
+
+interface ProfileEditorProps {
+  initial: ModelProfile;
+  catalog: ModelCatalog | null;
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (p: ModelProfile) => void;
+}
+
+const inputCls =
+  'w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 transition';
+
+const numOrUndef = (v: string) => (v.trim() === '' || Number.isNaN(Number(v)) ? undefined : Number(v));
+
+const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, onCancel, onSave }) => {
+  const [p, setP] = useState<ModelProfile>(initial);
+  const [showKey, setShowKey] = useState(false);
+  const [error, setError] = useState('');
+
+  const set = (patch: Partial<ModelProfile>) => {
+    setP((prev) => ({ ...prev, ...patch }));
+    setError('');
+  };
+  const setSampling = (patch: Partial<SamplingParams>) =>
+    set({ samplingParams: { ...(p.samplingParams || {}), ...patch } });
+
+  const isCompat = p.kind === 'openai-compatible';
+  const providers = catalog?.providers || [];
+  const providerModels = providers.find((x) => x.id === p.provider)?.models || [];
+  const base = isCompat ? null : findCatalogModel(catalog, p.provider, p.modelId);
+
+  // 依模型決定可設定的參數
+  const defaults = isCompat
+    ? COMPAT_DEFAULTS
+    : { contextWindow: base?.contextWindow, maxTokens: base?.maxTokens };
+  const levels = useMemo(
+    () => (isCompat ? supportedThinkingLevels({ reasoning: p.reasoning }) : supportedThinkingLevels(base)),
+    [isCompat, p.reasoning, base]
+  );
+  const showSampling = isCompat || supportsSampling(base?.api);
+  const sp = p.samplingParams || {};
+
+  const isModified =
+    p.contextWindow !== undefined ||
+    p.maxTokens !== undefined ||
+    p.thinkingLevel !== undefined ||
+    Object.values(sp).some((v) => v !== undefined);
+
+  const resetDefaults = () =>
+    set({ contextWindow: undefined, maxTokens: undefined, thinkingLevel: undefined, samplingParams: undefined });
+
+  const selectProvider = (id: string) => {
+    const first = providers.find((x) => x.id === id)?.models[0];
+    set({ provider: id, modelId: first?.id || '', thinkingLevel: undefined });
+  };
+
+  const submit = () => {
+    if (!p.name.trim()) return setError('請輸入設定檔名稱');
+    if (isCompat && !p.baseUrl?.trim()) return setError('請輸入 Base URL');
+    if (!isCompat && !p.provider) return setError('請選擇供應商');
+    if (!p.modelId.trim()) return setError('請選擇或輸入模型');
+    // 不支援的參數不寫入，避免殘留其他模型的設定
+    const clean: ModelProfile = {
+      ...p,
+      name: p.name.trim(),
+      modelId: p.modelId.trim(),
+      baseUrl: isCompat ? p.baseUrl?.trim() : undefined,
+      provider: isCompat ? undefined : p.provider,
+      reasoning: isCompat ? p.reasoning : undefined,
+      maxTokensField: isCompat ? p.maxTokensField : undefined,
+      thinkingLevel: p.thinkingLevel && levels.includes(p.thinkingLevel) ? p.thinkingLevel : undefined,
+      samplingParams: showSampling ? p.samplingParams : undefined,
+    };
+    onSave(clean);
+  };
+
+  const Dot = ({ on }: { on: boolean }) =>
+    on ? <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 ml-1 align-middle" title="已修改" /> : null;
+
+  return (
+    <>
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm">
+        {/* 基本資料 */}
+        <section className="space-y-3">
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1 font-medium">設定檔名稱</label>
+            <input
+              className={inputCls}
+              value={p.name}
+              onChange={(e) => set({ name: e.target.value })}
+              placeholder="DeepSeek 寫程式"
+              autoFocus
+            />
+          </div>
+
+          <div className="flex gap-1.5">
+            {(['builtin', 'openai-compatible'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => set({ kind: k, modelId: '', thinkingLevel: undefined })}
+                className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                  p.kind === k
+                    ? 'bg-indigo-600 text-white border-indigo-500'
+                    : 'bg-zinc-900/80 text-zinc-400 border-zinc-700/60 hover:bg-zinc-800 hover:text-zinc-200'
+                }`}
+              >
+                {k === 'builtin' ? 'pi 內建供應商' : 'OpenAI Compatible'}
+              </button>
+            ))}
+          </div>
+
+          {isCompat ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
+                <label className="block text-xs text-zinc-400 mb-1 font-medium">Base URL</label>
+                <input
+                  className={`${inputCls} font-mono`}
+                  value={p.baseUrl || ''}
+                  onChange={(e) => set({ baseUrl: e.target.value })}
+                  placeholder="https://api.siliconflow.com/v1"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-zinc-400 mb-1 font-medium">模型 ID</label>
+                <input
+                  className={`${inputCls} font-mono`}
+                  value={p.modelId}
+                  onChange={(e) => set({ modelId: e.target.value })}
+                  placeholder="zai-org/GLM-5.3-Flash"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1 font-medium">供應商</label>
+                <select className={inputCls} value={p.provider || ''} onChange={(e) => selectProvider(e.target.value)}>
+                  <option value="" disabled>
+                    {catalog ? '選擇供應商' : '載入 pi 模型目錄中…'}
+                  </option>
+                  {providers.map((prov) => (
+                    <option key={prov.id} value={prov.id} disabled={!prov.supported}>
+                      {providerLabel(prov.id)}
+                      {prov.supported ? '' : `（${prov.unsupportedReason}）`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1 font-medium">模型</label>
+                <select
+                  className={`${inputCls} font-mono`}
+                  value={p.modelId}
+                  onChange={(e) => set({ modelId: e.target.value, thinkingLevel: undefined })}
+                  disabled={!p.provider}
+                >
+                  {!providerModels.some((m) => m.id === p.modelId) && (
+                    <option value={p.modelId}>{p.modelId || '選擇模型'}</option>
+                  )}
+                  {providerModels.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name && m.name !== m.id ? `${m.name} (${m.id})` : m.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1 font-medium">API Key</label>
+            <div className="relative flex items-center">
+              <input
+                type={showKey ? 'text' : 'password'}
+                className={`${inputCls} font-mono pr-9`}
+                value={p.apiKey || ''}
+                onChange={(e) => set({ apiKey: e.target.value })}
+                placeholder="sk-..."
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-2.5 p-1 text-zinc-500 hover:text-zinc-300"
+              >
+                {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
+              </button>
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-1">也可填 $環境變數名稱，例如 $DEEPSEEK_API_KEY，由執行 pi 的環境提供</p>
+          </div>
+        </section>
+
+        {/* 參數：只顯示此模型支援的項目 */}
+        <section className="space-y-4 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">參數</span>
+            <button
+              type="button"
+              onClick={resetDefaults}
+              disabled={!isModified}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-zinc-400 border border-zinc-700/60 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-40 transition"
+            >
+              <RotateCcw size={11} />
+              <span>恢復預設</span>
+            </button>
+          </div>
+
+          {isCompat && (
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(p.reasoning)}
+                  onChange={(e) => set({ reasoning: e.target.checked, thinkingLevel: undefined })}
+                  className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                />
+                模型支援推理（思考）
+              </label>
+              <label className="flex items-center gap-2 text-xs text-zinc-400">
+                最大輸出欄位
+                <select
+                  className="bg-zinc-900 border border-zinc-700/80 rounded-md px-2 py-1 text-xs text-zinc-200 font-mono"
+                  value={p.maxTokensField || ''}
+                  onChange={(e) => set({ maxTokensField: (e.target.value || undefined) as ModelProfile['maxTokensField'] })}
+                >
+                  <option value="">預設 (max_completion_tokens)</option>
+                  <option value="max_tokens">max_tokens</option>
+                </select>
+              </label>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1 font-medium">
+                上下文長度<Dot on={p.contextWindow !== undefined} />
+              </label>
+              <input
+                type="number"
+                className={`${inputCls} font-mono`}
+                value={p.contextWindow ?? defaults.contextWindow ?? ''}
+                onChange={(e) => set({ contextWindow: numOrUndef(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1 font-medium">
+                最大輸出<Dot on={p.maxTokens !== undefined} />
+              </label>
+              <input
+                type="number"
+                className={`${inputCls} font-mono`}
+                value={p.maxTokens ?? defaults.maxTokens ?? ''}
+                onChange={(e) => set({ maxTokens: numOrUndef(e.target.value) })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="text-xs text-zinc-400 mb-1.5 font-medium">
+              思考等級<Dot on={p.thinkingLevel !== undefined} />
+              <span className="text-zinc-500 font-normal ml-2">此模型支援：{levels.join(' / ')}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <LevelButton label="預設" selected={!p.thinkingLevel} onClick={() => set({ thinkingLevel: undefined })} />
+              {levels.map((lvl) => (
+                <LevelButton
+                  key={lvl}
+                  label={lvl}
+                  selected={p.thinkingLevel === lvl}
+                  onClick={() => set({ thinkingLevel: lvl as ThinkingLevel })}
+                />
+              ))}
+            </div>
+          </div>
+
+          {showSampling ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {(
+                [
+                  ['temperature', 'Temperature', '0.0 – 2.0'],
+                  ['top_p', 'Top P', '0.0 – 1.0'],
+                  ['top_k', 'Top K', '整數'],
+                ] as const
+              ).map(([key, label, hint]) => (
+                <div key={key}>
+                  <label className="block text-xs text-zinc-400 mb-1 font-medium">
+                    {label}
+                    <Dot on={sp[key] !== undefined} />
+                  </label>
+                  <input
+                    type="number"
+                    step={key === 'top_k' ? 1 : 0.05}
+                    className={`${inputCls} font-mono`}
+                    value={sp[key] ?? ''}
+                    onChange={(e) => setSampling({ [key]: numOrUndef(e.target.value) })}
+                    placeholder={`不送出（${hint}）`}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            base && (
+              <p className="text-[11px] text-zinc-500">
+                此模型使用 {base.api} 格式，不支援 Temperature / Top P 等採樣參數。
+              </p>
+            )
+          )}
+        </section>
+      </div>
+
+      <div className="px-6 py-3.5 border-t border-zinc-800 bg-zinc-900/70 flex items-center justify-between gap-3">
+        <span className="text-xs text-rose-300">{error}</span>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="px-3.5 py-1.5 rounded-lg border border-zinc-700 hover:bg-zinc-800 text-zinc-300 text-xs font-medium transition"
+          >
+            取消
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy}
+            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium flex items-center space-x-1.5 transition shadow"
+          >
+            {busy ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
+            <span>{busy ? '儲存中...' : '儲存'}</span>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+};
+
+const LevelButton: React.FC<{ label: string; selected: boolean; onClick: () => void }> = ({ label, selected, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+      selected
+        ? 'bg-indigo-600 text-white border-indigo-500'
+        : 'bg-zinc-900/80 text-zinc-400 border-zinc-700/60 hover:bg-zinc-800 hover:text-zinc-200'
+    }`}
+  >
+    {label}
+  </button>
+);

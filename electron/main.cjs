@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const { PiBridge } = require('./pi-bridge.cjs');
 const { TerminalManager } = require('./terminal-manager.cjs');
+const { ModelProfileManager } = require('./model-profiles.cjs');
 
 let mainWindow = null;
 let piBridge = null;
@@ -674,85 +675,118 @@ ipcMain.handle('core:restart', async () => {
   return false;
 });
 
-// 模型細項設定 IPC Handlers
-ipcMain.handle('model:get-config', async () => {
+// 模型設定檔 IPC Handlers
+// 設定檔全域共用；每個環境（本機 / SSH 主機）各自啟用多張並指定預設，
+// 套用時寫入該環境自己的 ~/.pi/agent（遠端 pi 讀的是遠端的設定檔）
+let profileManager = null;
+function getProfileManager() {
+  if (!profileManager && piBridge) {
+    profileManager = new ModelProfileManager(app, piBridge.sshManager, piBridge.coreManager);
+  }
+  return profileManager;
+}
+
+// 環境識別碼：本機為 'local'，遠端為 'ssh:<主機 id>'（與前端 envKeyOf 一致）
+function envKeyOf(ssh) {
+  if (!ssh) return 'local';
+  const norm = piBridge?.sshManager?.normalizeSshConfig(ssh);
+  return norm ? `ssh:${norm.id}` : 'local';
+}
+
+// 可設定的環境清單：本機 + 已儲存的 SSH 主機
+ipcMain.handle('model:list-environments', async () => {
+  const hosts = piBridge?.sshManager?.getSavedHosts() || [];
+  return [
+    { key: 'local', label: '本機', ssh: null },
+    ...hosts.map((h) => ({ key: envKeyOf(h), label: h.label || h.host, ssh: h })),
+  ];
+});
+
+// 依環境識別碼找回 SSH 設定（本機為 null）
+function sshOfEnv(envKey) {
+  if (envKey === 'local') return null;
+  const hosts = piBridge?.sshManager?.getSavedHosts() || [];
+  return hosts.find((h) => envKeyOf(h) === envKey) || null;
+}
+
+// 把某環境的設定寫入檔案，並重啟該環境的對話程序讓 pi 重新讀取
+async function applyProfilesToEnv(envKey) {
+  const ssh = sshOfEnv(envKey);
+  if (envKey !== 'local' && !ssh) {
+    return { envKey, success: false, error: '找不到此 SSH 主機的連線設定' };
+  }
+  const res = await getProfileManager().applyEnv(envKey, ssh);
+  if (res.success) {
+    res.restart = piBridge.restartEnvProcesses((procSsh) => envKeyOf(procSsh) === envKey);
+  }
+  return { envKey, ...res };
+}
+
+ipcMain.handle('profile:get-state', async () => {
+  const pm = getProfileManager();
+  return pm ? pm.loadState() : { profiles: [], envs: {} };
+});
+
+// pi 內建模型目錄（預設讀本機核心；帶 ssh 則讀該主機上安裝的 pi）
+ipcMain.handle('profile:get-catalog', async (event, { ssh = null, refresh = false } = {}) => {
+  const pm = getProfileManager();
+  if (!pm) return { success: false, error: 'Bridge not ready' };
+  return pm.getCatalog(ssh, { refresh });
+});
+
+// 新增或修改設定檔；已在某些環境啟用的，同步重新套用到那些環境
+ipcMain.handle('profile:save', async (event, { profile }) => {
+  const pm = getProfileManager();
+  if (!pm) return { success: false, error: 'Bridge not ready' };
   try {
-    const agentDir = path.join(os.homedir(), '.pi', 'agent');
-    const modelsPath = path.join(agentDir, 'models.json');
-    const settingsPath = path.join(agentDir, 'settings.json');
-
-    let modelsConfig = { providers: {} };
-    let settingsConfig = {};
-
-    if (fs.existsSync(modelsPath)) {
-      try {
-        modelsConfig = JSON.parse(fs.readFileSync(modelsPath, 'utf-8'));
-      } catch (e) {
-        console.error('[main] models.json 解析錯誤:', e);
-      }
+    const { state, profile: saved } = pm.upsertProfile(profile);
+    const applyResults = [];
+    for (const envKey of pm.envsUsingProfile(saved.id)) {
+      applyResults.push(await applyProfilesToEnv(envKey));
     }
-
-    if (fs.existsSync(settingsPath)) {
-      try {
-        settingsConfig = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-      } catch (e) {
-        console.error('[main] settings.json 解析錯誤:', e);
-      }
-    }
-
-    return {
-      success: true,
-      agentDir,
-      modelsConfig,
-      settingsConfig,
-    };
+    return { success: true, state, profile: saved, applyResults };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-ipcMain.handle('model:save-config', async (event, { modelsConfig, settingsConfig, applyToActiveSession, convId }) => {
+ipcMain.handle('profile:delete', async (event, { id }) => {
+  const pm = getProfileManager();
+  if (!pm) return { success: false, error: 'Bridge not ready' };
   try {
-    const agentDir = path.join(os.homedir(), '.pi', 'agent');
-    const modelsPath = path.join(agentDir, 'models.json');
-    const settingsPath = path.join(agentDir, 'settings.json');
-
-    if (!fs.existsSync(agentDir)) {
-      fs.mkdirSync(agentDir, { recursive: true });
-    }
-
-    if (modelsConfig) {
-      fs.writeFileSync(modelsPath, JSON.stringify(modelsConfig, null, 2), 'utf-8');
-    }
-
-    if (settingsConfig) {
-      fs.writeFileSync(settingsPath, JSON.stringify(settingsConfig, null, 2), 'utf-8');
-    }
-
-    // 若勾選同時套用至進行中對話
-    if (applyToActiveSession && convId && piBridge) {
-      const provider = settingsConfig?.defaultProvider;
-      const modelId = settingsConfig?.defaultModel;
-      if (provider && modelId) {
-        try {
-          await piBridge.setModel(convId, provider, modelId);
-        } catch (e) {
-          console.warn('[PiBridge] setModel 失敗:', e);
-        }
-      }
-      if (settingsConfig?.defaultThinkingLevel) {
-        try {
-          await piBridge.setThinkingLevel(convId, settingsConfig.defaultThinkingLevel);
-        } catch (e) {
-          console.warn('[PiBridge] setThinkingLevel 失敗:', e);
-        }
-      }
-    }
-
-    return { success: true };
+    const { state, affected } = pm.deleteProfile(id);
+    const applyResults = [];
+    for (const envKey of affected) applyResults.push(await applyProfilesToEnv(envKey));
+    return { success: true, state, applyResults };
   } catch (err) {
     return { success: false, error: err.message };
   }
+});
+
+// 設定某環境啟用哪些設定檔與預設，立即套用
+ipcMain.handle('profile:set-env', async (event, { envKey, enabled, defaultId }) => {
+  const pm = getProfileManager();
+  if (!pm) return { success: false, error: 'Bridge not ready' };
+  try {
+    const state = pm.setEnvSelection(envKey, { enabled, defaultId });
+    const applyResult = await applyProfilesToEnv(envKey);
+    return { success: true, state, applyResult };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// 對話中切換設定檔
+ipcMain.handle('profile:select-for-conv', async (event, { convId, profileId }) => {
+  const pm = getProfileManager();
+  if (!pm) return { success: false, error: 'Bridge not ready' };
+  const profile = pm.loadState().profiles.find((p) => p.id === profileId);
+  if (!profile) return { success: false, error: '找不到此設定檔' };
+  return piBridge.selectModelForConv(convId, {
+    provider: pm.providerKeyOf(profile),
+    modelId: profile.modelId,
+    thinkingLevel: profile.thinkingLevel,
+  });
 });
 
 ipcMain.handle('model:set-runtime', async (event, { convId, provider, modelId, thinkingLevel }) => {

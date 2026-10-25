@@ -175,41 +175,71 @@ export interface CheckUpdateResult {
 
 export type ThinkingLevel = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-export interface ModelDetailConfig {
+export interface SamplingParams {
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+}
+
+/** 模型設定檔：一張「供應商 + 模型 + 參數 + 金鑰」的卡片，全域共用 */
+export interface ModelProfile {
   id: string;
-  name?: string;
+  name: string;
+  /** builtin = pi 內建供應商；openai-compatible = 自填端點 */
+  kind: 'builtin' | 'openai-compatible';
+  /** pi 內建供應商 id（builtin 才有） */
+  provider?: string;
+  modelId: string;
+  /** openai-compatible 的端點 */
+  baseUrl?: string;
+  apiKey?: string;
+  /** 以下參數未設定 = 使用預設值 */
   contextWindow?: number;
   maxTokens?: number;
+  thinkingLevel?: ThinkingLevel;
+  samplingParams?: SamplingParams;
+  /** openai-compatible：模型是否支援推理 */
   reasoning?: boolean;
-  input?: ('text' | 'image')[];
-  samplingParams?: {
-    temperature?: number;
-    top_p?: number;
-    [key: string]: any;
-  };
-  [key: string]: any;
+  /** openai-compatible：最大輸出要用的欄位名稱 */
+  maxTokensField?: 'max_tokens' | 'max_completion_tokens';
+  updatedAt?: number;
 }
 
-export interface ProviderDetailConfig {
+export interface EnvProfileSelection {
+  enabled: string[];
+  defaultId: string | null;
+}
+
+export interface ProfileState {
+  profiles: ModelProfile[];
+  envs: Record<string, EnvProfileSelection>;
+}
+
+/** pi 內建模型目錄中的一個對話模型 */
+export interface CatalogModel {
+  id: string;
   name?: string;
+  api: string;
   baseUrl?: string;
-  api?: string;
-  apiKey?: string;
-  models?: ModelDetailConfig[];
-  [key: string]: any;
+  reasoning?: boolean;
+  /** null 表示該等級不支援；xhigh / max 需明確對應才支援 */
+  thinkingLevelMap?: Partial<Record<ThinkingLevel, string | null>>;
+  input?: string[];
+  contextWindow: number;
+  maxTokens: number;
 }
 
-export interface ModelsConfig {
-  $schema?: string;
-  providers: Record<string, ProviderDetailConfig>;
+export interface CatalogProvider {
+  id: string;
+  supported: boolean;
+  unsupportedReason?: string;
+  models: CatalogModel[];
 }
 
-export interface SettingsConfig {
-  $schema?: string;
-  defaultProvider?: string;
-  defaultModel?: string;
-  defaultThinkingLevel?: ThinkingLevel;
-  lastChangelogVersion?: string;
-  [key: string]: any;
+export interface ModelCatalog {
+  success: boolean;
+  error?: string;
+  version?: string;
+  providers: CatalogProvider[];
 }
 

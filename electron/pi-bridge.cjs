@@ -349,6 +349,10 @@ class PiBridge {
     this.sshManager = new SshManager(app);
     this.processes = new Map(); // convId -> PiProcess
     this.reclaimTimers = new Map(); // convId -> Timeout
+    // 對話選用的模型設定檔（程序重生後需重新套用）：convId -> { provider, modelId, thinkingLevel }
+    this.convModelSelections = new Map();
+    // 設定已變更、等跑完再重啟的對話
+    this.pendingRestarts = new Set();
     this.currentWorkspace = process.cwd();
     this.activeCoreInfo = null;
     this.activeConvId = null; // 目前畫面上開著的對話（閒置時保留，避免每次送出都重生）
@@ -391,7 +395,70 @@ class PiBridge {
     const proc = new PiProcess(this, convId, cwd || this.currentWorkspace, { sessionFile, ssh });
     this.processes.set(convId, proc);
     proc.start();
+    // 程序重生後，重新套用此對話先前選用的模型設定檔
+    const sel = this.convModelSelections.get(convId);
+    if (sel) {
+      proc.ready = proc.ready.then(async () => {
+        if (proc.disposed) return;
+        const res = await proc.setModel(sel.provider, sel.modelId);
+        if (!res || res.success === false) {
+          // 設定檔已停用或不存在：改用環境預設
+          this.convModelSelections.delete(convId);
+          return;
+        }
+        if (sel.thinkingLevel) await proc.setThinkingLevel(sel.thinkingLevel);
+      });
+    }
     return proc;
+  }
+
+  // 對話切換到某個模型設定檔（provider 為 models.json 中的 pui-* 供應商）
+  async selectModelForConv(convId, { provider, modelId, thinkingLevel }) {
+    const proc = this.processes.get(convId);
+    if (!proc || proc.disposed) {
+      // 程序尚未啟動：先記下，啟動時套用
+      this.convModelSelections.set(convId, { provider, modelId, thinkingLevel });
+      return { success: true, deferred: true };
+    }
+    await proc.ready;
+    const res = await proc.setModel(provider, modelId);
+    if (!res || res.success === false) return { success: false, error: res?.error || '切換模型失敗' };
+    this.convModelSelections.set(convId, { provider, modelId, thinkingLevel });
+    if (thinkingLevel) await proc.setThinkingLevel(thinkingLevel);
+    return { success: true };
+  }
+
+  // 模型設定變更後重啟某環境的對話程序（pi 執行中不會重讀 models.json）。
+  // 閒置的立即重生並載回原 session；執行中的等跑完再重啟。
+  restartEnvProcesses(matchesEnv) {
+    let restarted = 0;
+    let deferred = 0;
+    for (const [convId, proc] of Array.from(this.processes.entries())) {
+      if (proc.disposed || !matchesEnv(proc.ssh)) continue;
+      if (proc.isStreaming) {
+        this.pendingRestarts.add(convId);
+        deferred++;
+        continue;
+      }
+      this.respawn(convId, proc);
+      restarted++;
+    }
+    return { restarted, deferred };
+  }
+
+  // 正在檢視的對話立即重生（畫面上的模型資訊才會更新）；其他對話直接回收，下次送出時再以新設定啟動
+  respawn(convId, proc) {
+    if (this.activeConvId !== convId) {
+      this.disposeProcess(convId);
+      return;
+    }
+    const opts = {
+      cwd: proc.workspace,
+      sessionFile: proc.sessionFile || proc.requestedSessionFile || undefined,
+      ssh: proc.ssh,
+    };
+    this.disposeProcess(convId);
+    this.ensureSession(convId, opts);
   }
 
   getProcess(convId) {
@@ -477,6 +544,14 @@ class PiBridge {
   onSettled(convId) {
     const proc = this.processes.get(convId);
     if (proc) proc.isStreaming = false;
+    // 執行中被延後的設定重啟
+    if (this.pendingRestarts.has(convId)) {
+      this.pendingRestarts.delete(convId);
+      if (proc && !proc.disposed) {
+        this.respawn(convId, proc);
+        return;
+      }
+    }
     // 非當前檢視的對話，跑完後回收
     if (this.activeConvId !== convId) {
       this.scheduleReclaim(convId);
