@@ -239,6 +239,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
 
         {status && (
           <div
+            role={status.type === 'error' ? 'alert' : 'status'}
             className={`px-6 py-2.5 text-xs flex items-start space-x-2 border-b ${
               status.type === 'success'
                 ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
@@ -246,7 +247,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
             }`}
           >
             {status.type === 'success' ? <CheckCircle2 size={14} className="shrink-0 mt-px" /> : <AlertCircle size={14} className="shrink-0 mt-px" />}
-            <span>{status.text}</span>
+            <span className="select-text">{status.text}</span>
           </div>
         )}
 
@@ -752,7 +753,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
       </div>
 
       <div className="px-6 py-3.5 border-t border-zinc-800 bg-zinc-900/70 flex items-center justify-between gap-3">
-        <span className="text-xs text-danger">{error}</span>
+        <span role="alert" className="text-xs text-danger select-text">{error}</span>
         <div className="flex items-center space-x-2">
           <button
             onClick={onCancel}

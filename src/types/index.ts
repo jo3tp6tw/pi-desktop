@@ -243,3 +243,9 @@ export interface ModelCatalog {
   providers: CatalogProvider[];
 }
 
+
+/** 對話的連線狀態（顯示於對話區頂列） */
+export interface ConnectionState {
+  state: 'connecting' | 'ready' | 'working' | 'failed' | 'offline';
+  error?: string;
+}

@@ -98,6 +98,9 @@ ipcMain.on('pi:abort', (event, { convId } = {}) => {
   }
 });
 
+// 預設工作區：主程序啟動時的工作目錄（前端在取得前不顯示任何路徑）
+ipcMain.handle('pi:get-default-workspace', () => (piBridge ? piBridge.currentWorkspace : process.cwd()));
+
 // 確保某個對話的子程序存在（需要時才開，閒置會被回收）
 ipcMain.handle('pi:ensure-session', (event, { convId, cwd, sessionFile, ssh }) => {
   if (!piBridge) return null;

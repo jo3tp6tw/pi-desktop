@@ -195,11 +195,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                         );
                       })}
+                      {project.sessions.length === 0 && (
+                        <button
+                          onClick={() => onNewSession(project.id)}
+                          className="list-row w-full gap-2 pl-8 text-fg-subtle"
+                        >
+                          <Plus size={13} /> New chat
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
               );
             })}
+            {projects.length === 0 && (
+              <button onClick={onOpenFolder} className="list-row w-full gap-2 text-fg-subtle">
+                <FolderPlus size={14} /> Add folder
+              </button>
+            )}
           </div>
         </div>
 
@@ -209,21 +222,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 border-t border-line bg-zinc-900/60 text-xs flex items-center justify-between text-zinc-400">
         <button
           onClick={onOpenCoreManager}
-          title="Pi core"
+          title={coreInfo?.description || 'Pi core'}
           className="flex items-center space-x-2 truncate hover:text-zinc-200 transition text-left"
         >
-          <div 
-            className={`w-2 h-2 rounded-full shrink-0 ${
-              coreInfo?.type === 'user' ? 'bg-emerald-400' : coreInfo?.type === 'bundled' ? 'bg-blue-400' : 'bg-amber-400'
-            }`} 
-            title={coreInfo?.description || 'Pi RPC Ready'}
-          />
+          <div className={`w-2 h-2 rounded-full shrink-0 ${coreInfo ? 'bg-success' : 'bg-fg-disabled'}`} />
           <div className="truncate flex flex-col">
             <span className="truncate text-xs tabular-nums font-medium text-zinc-200">
-              Pi Core v{coreInfo?.version || '1.3.0'}
+              Pi Core{coreInfo?.version ? ` v${coreInfo.version}` : ''}
             </span>
             <span className="text-xs text-fg-subtle">
-              {coreInfo?.type === 'user' ? 'User install' : coreInfo?.type === 'bundled' ? 'Bundled' : 'System PATH'}
+              {!coreInfo ? 'Not loaded' : coreInfo.type === 'user' ? 'User install' : coreInfo.type === 'bundled' ? 'Bundled' : 'System PATH'}
             </span>
           </div>
         </button>

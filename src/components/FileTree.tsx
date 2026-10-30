@@ -34,6 +34,7 @@ import {
   FolderPlus,
   Copy as CopyPathIcon,
   AlertTriangle,
+  X,
 } from 'lucide-react';
 import { Markdown } from './Markdown';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
@@ -155,13 +156,19 @@ export const FileTree: React.FC<FileTreeProps> = ({
     y: number;
     items: ContextMenuItem[];
   } | null>(null);
-  const [opToast, setOpToast] = useState<string | null>(null);
+  // 操作提示：成功訊息自動消失；錯誤訊息保留全文直到使用者關閉
+  const [opToast, setOpToast] = useState<{ text: string; error?: boolean } | null>(null);
   const opToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showOpToast = useCallback((msg: string) => {
-    setOpToast(msg);
+    setOpToast({ text: msg });
     if (opToastTimerRef.current) clearTimeout(opToastTimerRef.current);
-    opToastTimerRef.current = setTimeout(() => setOpToast(null), 2400);
+    opToastTimerRef.current = setTimeout(() => setOpToast(null), 3000);
+  }, []);
+
+  const showOpError = useCallback((msg: string) => {
+    if (opToastTimerRef.current) clearTimeout(opToastTimerRef.current);
+    setOpToast({ text: msg, error: true });
   }, []);
 
   // 3. 檔案檢視 / 編輯器狀態（滿版切換）
@@ -171,6 +178,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const [editedContent, setEditedContent] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
 
   // 檢視模式：'preview' (用於 Markdown / SVG 預覽) | 'code' (Monaco 編輯器)
@@ -309,6 +317,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       if (!ipcRenderer) return;
       setFileLoading(true);
       setFileError(null);
+      setSaveError(null);
       setImageZoom(100);
       setImageDimensions(null);
       setActiveFile({
@@ -408,7 +417,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
 
         if (!res || !res.success) {
-          showOpToast(res?.error || `Path not found: ${raw}`);
+          showOpError(res?.error || `Path not found: ${raw}`);
           return;
         }
 
@@ -434,7 +443,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
       } catch (e: any) {
         if (!cancelled) {
-          showOpToast(e?.message || `Could not open: ${raw}`);
+          showOpError(e?.message || `Could not open: ${raw}`);
         }
       }
     })();
@@ -472,15 +481,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
               }
             : null
         );
+        setSaveError(null);
         setSaveToast('Saved');
         setTimeout(() => setSaveToast(null), 1800);
       } else {
-        setSaveToast(`Save failed: ${res?.error || 'unknown error'}`);
-        setTimeout(() => setSaveToast(null), 3000);
+        setSaveError(`Save failed: ${res?.error || 'unknown error'}`);
       }
     } catch (e: any) {
-      setSaveToast(`Save failed: ${e?.message || 'unknown error'}`);
-      setTimeout(() => setSaveToast(null), 3000);
+      setSaveError(`Save failed: ${e?.message || 'unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -559,7 +567,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       if (res?.success) {
         await loadDirectory(currentDirRef.current);
       } else {
-        showOpToast(`Rename failed: ${res?.error || 'unknown error'}`);
+        showOpError(`Rename failed: ${res?.error || 'unknown error'}`);
       }
     },
     [ssh, loadDirectory, showOpToast]
@@ -582,7 +590,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         showOpToast(`Moved ${itemCount(validSources.length)} to ${destName}`);
         await loadDirectory(currentDirRef.current);
       } else {
-        showOpToast(`Move failed: ${res?.error || 'unknown error'}`);
+        showOpError(`Move failed: ${res?.error || 'unknown error'}`);
       }
     },
     [ssh, parentDir, loadDirectory, showOpToast]
@@ -611,7 +619,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     async (targetDirPath?: string) => {
       if (!ipcRenderer || !fileClipboard || fileClipboard.paths.length === 0) return;
       if ((fileClipboard.sshId || undefined) !== (ssh?.id || undefined)) {
-        showOpToast('Copy and paste only works within the same host');
+        showOpError('Copy and paste only works within the same host');
         return;
       }
       const destDir = targetDirPath || currentDirRef.current;
@@ -628,7 +636,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
         await loadDirectory(currentDirRef.current);
       } else {
-        showOpToast(`Paste failed: ${res?.error || 'unknown error'}`);
+        showOpError(`Paste failed: ${res?.error || 'unknown error'}`);
       }
     },
     [fileClipboard, ssh, loadDirectory, showOpToast]
@@ -657,7 +665,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         openFile(res.path, name);
       }
     } else {
-      showOpToast(`Create failed: ${res?.error || 'unknown error'}`);
+      showOpError(`Create failed: ${res?.error || 'unknown error'}`);
     }
   }, [creatingItem, ssh, loadDirectory, openFile, showOpToast]);
 
@@ -677,7 +685,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       showOpToast(res.trashed ? `Moved ${itemCount(paths.length)} to Recycle Bin` : `Deleted ${itemCount(paths.length)}`);
       await loadDirectory(currentDirRef.current);
     } else {
-      showOpToast(`Delete failed: ${res?.error || 'unknown error'}`);
+      showOpError(`Delete failed: ${res?.error || 'unknown error'}`);
     }
   }, [deleteTargets, ssh, loadDirectory, showOpToast]);
 
@@ -961,6 +969,23 @@ export const FileTree: React.FC<FileTreeProps> = ({
   // ============================================================================
   // 滿版模式 A：檔案檢視與編輯器 (File Viewer / Monaco Editor)
   // ============================================================================
+  // 操作提示（檔案檢視與樹狀兩種模式共用）
+  const opToastNode = opToast && (
+    opToast.error ? (
+      <div role="alert" className="absolute bottom-3 left-3 right-3 z-50 flex items-start gap-2 rounded-md border border-danger/40 bg-overlay py-1.5 pl-2.5 pr-1 text-xs text-fg-strong shadow-lg">
+        <AlertCircle size={13} className="mt-0.5 shrink-0 text-danger" />
+        <span className="min-w-0 flex-1 select-text break-words">{opToast.text}</span>
+        <button title="Dismiss" onClick={() => setOpToast(null)} className="icon-btn -my-0.5">
+          <X size={12} />
+        </button>
+      </div>
+    ) : (
+      <div role="status" className="absolute bottom-3 left-3 right-3 z-50 rounded-md border border-zinc-700 bg-zinc-900/95 px-3 py-1.5 text-xs text-zinc-200 shadow-lg truncate text-center pointer-events-none">
+        {opToast.text}
+      </div>
+    )
+  );
+
   if (activeFile || fileLoading) {
     const canToggleMarkdown = activeFile && activeFile.kind === 'text' && isMarkdownFile(activeFile.name);
     const canToggleSvgCode =
@@ -971,7 +996,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         (canToggleSvgCode && viewMode === 'code'));
 
     return (
-      <div className="h-full flex flex-col bg-canvas overflow-hidden select-none">
+      <div className="h-full flex flex-col bg-canvas overflow-hidden select-none relative">
         {/* 第一排：顯示該檔案路徑，按「↑ 上一層」直接回到該檔案所在目錄的檔案樹 */}
         {renderDirectoryHeader()}
 
@@ -1118,6 +1143,17 @@ export const FileTree: React.FC<FileTreeProps> = ({
           )}
         </div>
 
+        {/* 存檔失敗 */}
+        {saveError && (
+          <div role="alert" className="flex items-start gap-2 border-b border-danger/30 bg-danger/10 px-3 py-1.5 text-xs text-danger">
+            <AlertCircle size={14} className="mt-px shrink-0" />
+            <span className="min-w-0 flex-1 select-text break-words">{saveError}</span>
+            <button title="Dismiss" onClick={() => setSaveError(null)} className="icon-btn -my-1 text-danger hover:text-danger">
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         {/* 超大檔案截斷提示 */}
         {activeFile?.truncated && (
           <div className="px-3 py-1.5 bg-warning/10 border-b border-warning/30 text-warning text-xs flex items-center gap-2">
@@ -1134,7 +1170,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               <span>Loading file…</span>
             </div>
           ) : fileError ? (
-            <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
+            <div role="alert" className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
               <AlertCircle size={28} className="text-danger" />
               <div className="text-sm text-zinc-300 font-medium">Could not open file</div>
               <div className="text-xs text-fg-subtle font-mono break-all max-w-sm">{fileError}</div>
@@ -1244,6 +1280,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
             </Suspense>
           ) : null}
         </div>
+
+        {opToastNode}
       </div>
     );
   }
@@ -1289,14 +1327,16 @@ export const FileTree: React.FC<FileTreeProps> = ({
         onContextMenu={(e) => openNodeContextMenu(e)}
       >
         {dirError ? (
-          <div className="p-4 text-center space-y-2">
-            <div className="text-xs text-danger font-mono break-all">{dirError}</div>
-            <button
-              onClick={() => loadDirectory(currentWorkspace)}
-              className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 transition"
-            >
-              Back to workspace root
-            </button>
+          <div role="alert" className="p-4 text-center space-y-2">
+            <div className="text-xs text-danger font-mono break-all select-text">{dirError}</div>
+            <div className="flex justify-center gap-1.5">
+              <button onClick={() => loadDirectory(currentDir)} className="btn bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:bg-zinc-700">
+                Retry
+              </button>
+              <button onClick={() => loadDirectory(currentWorkspace)} className="btn-ghost px-2.5 py-1 text-xs">
+                Back to workspace root
+              </button>
+            </div>
           </div>
         ) : dirLoading && items.length === 0 ? (
           <div className="h-32 flex items-center justify-center gap-2 text-xs text-fg-subtle">
@@ -1304,8 +1344,16 @@ export const FileTree: React.FC<FileTreeProps> = ({
             <span>Loading folder…</span>
           </div>
         ) : treeData.length === 0 ? (
-          <div className="py-8 text-center text-xs text-fg-subtle">
-            Empty folder
+          <div className="py-8 flex flex-col items-center gap-2 text-xs text-fg-subtle">
+            <span>Empty folder</span>
+            <div className="flex gap-1">
+              <button onClick={() => setCreatingItem({ isDirectory: false, value: '' })} className="btn-ghost gap-1 px-2 py-1 text-xs">
+                <FilePlus size={12} /> New file
+              </button>
+              <button onClick={() => setCreatingItem({ isDirectory: true, value: '' })} className="btn-ghost gap-1 px-2 py-1 text-xs">
+                <FolderPlus size={12} /> New folder
+              </button>
+            </div>
           </div>
         ) : (
           <Tree<ArboristFileNode>
@@ -1494,12 +1542,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         </div>
       )}
 
-      {/* 操作狀態輕量提示 (Toast) */}
-      {opToast && (
-        <div className="absolute bottom-3 left-3 right-3 z-50 rounded-md border border-zinc-700 bg-zinc-900/95 px-3 py-1.5 text-xs text-zinc-200 shadow-lg truncate text-center pointer-events-none">
-          {opToast}
-        </div>
-      )}
+      {opToastNode}
     </div>
   );
 };

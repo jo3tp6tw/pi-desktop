@@ -25,8 +25,10 @@ import {
   Trash2,
   Monitor,
   Server,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
-import type { Message, SubagentTask, ThinkingLevel, ToolCall } from '../types';
+import type { ConnectionState, Message, SubagentTask, ThinkingLevel, ToolCall } from '../types';
 import { ModelPicker } from './ModelPicker';
 import { SubagentCard } from './SubagentCard';
 import { Markdown } from './Markdown';
@@ -63,7 +65,50 @@ interface ChatAreaProps {
   onSetMessageLabel?: (message: Message, label: string | undefined, userTurnIndex: number) => void;
   onToggleMessageOmit?: (message: Message, userTurnIndex: number) => void;
   onOpenPath?: (path: string) => void;
+  /** 目前對話的連線狀態（頂列右側顯示） */
+  connection?: ConnectionState;
+  onRetryConnection?: () => void;
 }
+
+/* ------------------------------------------------------------------ */
+/* 頂列右側的連線狀態：依實際狀態顯示，中斷時可重試                      */
+/* ------------------------------------------------------------------ */
+const STATUS_VIEW: Record<Exclude<ConnectionState['state'], 'failed'>, { dot: string; label: string }> = {
+  connecting: { dot: 'bg-fg-subtle', label: 'Connecting…' },
+  ready: { dot: 'bg-success', label: 'Ready' },
+  working: { dot: 'bg-warning', label: 'Working…' },
+  offline: { dot: 'bg-fg-disabled', label: 'Preview' },
+};
+
+const ConnectionStatus: React.FC<{ connection: ConnectionState; onRetry?: () => void }> = ({ connection, onRetry }) => {
+  if (connection.state === 'failed') {
+    return (
+      <div role="alert" className="flex min-w-0 items-center gap-2 text-xs">
+        <span className="flex shrink-0 items-center gap-1.5 text-danger">
+          <AlertCircle size={13} className="shrink-0" />
+          Disconnected
+        </span>
+        {connection.error && (
+          <span className="min-w-0 max-w-[240px] truncate select-text text-fg-subtle" title={connection.error}>
+            {connection.error}
+          </span>
+        )}
+        {onRetry && (
+          <button onClick={onRetry} className="btn-ghost shrink-0 px-2 py-0.5 text-xs">
+            Retry
+          </button>
+        )}
+      </div>
+    );
+  }
+  const view = STATUS_VIEW[connection.state];
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+      <span className={`w-2 h-2 rounded-full ${view.dot}`} />
+      <span>{view.label}</span>
+    </div>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* 純圖示 + 即時懸浮 Tooltip 按鈕元件（無文字、無表情符號）                */
@@ -770,8 +815,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSendMessage,
   onStop,
   onInspectSubagent,
-  projectName = 'pi-ui',
-  projectPath = 'c:\\aa-project\\pi-ui',
+  projectName = '',
+  projectPath = '',
   conversationId,
   modelInfo,
   thinkingLevel,
@@ -790,6 +835,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSetMessageLabel,
   onToggleMessageOmit,
   onOpenPath,
+  connection = { state: 'connecting' },
+  onRetryConnection,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -859,12 +906,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-3 text-sm">
-          <div className="flex items-center space-x-1.5 text-zinc-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-xs">Active</span>
-          </div>
-        </div>
+        <ConnectionStatus connection={connection} onRetry={onRetryConnection} />
       </header>
 
       {/* 對話訊息列表 */}
@@ -907,6 +949,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             );
           });
         })()}
+
+        {/* 送出後、第一段回應抵達前 */}
+        {isLoading && (messages.length === 0 || messages[messages.length - 1].role === 'user') && (
+          <div role="status" className="flex space-x-3 max-w-4xl mx-auto w-full min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5 text-primary shadow-sm">
+              <Bot size={16} />
+            </div>
+            <div className="flex items-center gap-2 py-1 text-sm text-fg-muted">
+              <Loader2 size={13} className="animate-spin motion-reduce:animate-none" />
+              Working…
+            </div>
+          </div>
+        )}
 
         </div>
 

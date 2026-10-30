@@ -290,9 +290,9 @@ export const SshModal: React.FC<SshModalProps> = ({
 
           {/* 錯誤提示 */}
           {error && (
-            <div className="rounded-lg border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-xs text-danger flex items-start gap-2">
+            <div role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-xs text-danger flex items-start gap-2">
               <AlertCircle size={15} className="text-danger shrink-0 mt-0.5" />
-              <div className="break-all leading-relaxed">{error}</div>
+              <div className="break-all leading-relaxed select-text">{error}</div>
             </div>
           )}
 

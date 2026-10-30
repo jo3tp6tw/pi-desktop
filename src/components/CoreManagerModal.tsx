@@ -128,6 +128,8 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
             <ShieldCheck className="w-3 h-3" /> Bundled
           </span>
         );
+      case undefined:
+        return <span className="text-fg-subtle">—</span>;
       default:
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
@@ -166,7 +168,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-zinc-400">Version</span>
               <span className="tabular-nums text-sm font-bold text-zinc-100">
-                v{coreInfo?.version || '1.3.0'}
+                {coreInfo?.version ? `v${coreInfo.version}` : '—'}
               </span>
             </div>
             <div className="flex items-center justify-between">

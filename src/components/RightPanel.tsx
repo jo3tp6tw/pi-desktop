@@ -97,7 +97,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             <Bot size={14} />
             <span>Subagents</span>
             {subagents.some((s) => s.status === 'running') && (
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse motion-reduce:animate-none"></span>
             )}
           </button>
         </div>

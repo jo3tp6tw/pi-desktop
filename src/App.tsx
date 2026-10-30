@@ -10,8 +10,9 @@ import { ResizeHandle } from './components/ResizeHandle';
 import {
   Play, Pencil, CopyPlus, Download, FileCode, FileJson, Clipboard as ClipboardIcon,
   Trash2, FolderOpen, Plus, RefreshCw, FolderPlus, ChevronsUpDown, AlertTriangle, Server,
+  AlertCircle, Copy, X,
 } from 'lucide-react';
-import type { Project, Session, Message, FileItem, SubagentTask, ToolCall, CoreInfo, BashCommand, SessionLog, SshConfig, ProfileState, ThinkingLevel } from './types';
+import type { Project, Session, Message, FileItem, SubagentTask, ToolCall, CoreInfo, BashCommand, SessionLog, SshConfig, ProfileState, ThinkingLevel, ConnectionState } from './types';
 import {
   appendAssistantDelta,
   appendToolPart,
@@ -47,13 +48,18 @@ const EMPTY_MESSAGES: Message[] = [];
 const EMPTY_BASH: BashCommand[] = [];
 const NO_THINKING: ThinkingLevel[] = ['off'];
 
-// 預設工作區（在真實專案載入前，或純網頁預覽模式使用）
+// 預設工作區：實際路徑由主程序回報（pi:get-default-workspace），取得前為空
 const DEFAULT_PROJECT: Project = {
   id: 'default',
-  name: 'pi-ui',
-  path: 'c:\\aa-project\\pi-ui',
+  name: '',
+  path: '',
   sessions: [],
 };
+
+// 對話的連線狀態（working / offline 由載入中與是否有 IPC 推導，不另外存）
+type ConvStatus = { state: 'connecting' | 'ready' | 'failed'; error?: string };
+
+const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() || p;
 
 // --- 三欄式佈局：可拖曳調整寬度的相關設定 ---
 const SIDEBAR_DEFAULT = 256; // 等同原本的 w-64
@@ -167,7 +173,16 @@ export const App: React.FC = () => {
   // 模型 / 思考等級依對話分開記錄：不同對話可能在不同環境（本機 / SSH 主機），各自的 pi 用各自的模型
   const [modelByConv, setModelByConv] = useState<Record<string, string>>({});
   const [thinkingByConv, setThinkingByConv] = useState<Record<string, string>>({});
-  const modelInfo = modelByConv[activeConvId] || 'Connecting…';
+  const [statusByConv, setStatusByConv] = useState<Record<string, ConvStatus>>({});
+  const convStatus = statusByConv[activeConvId];
+  const connection: ConnectionState = !ipcRenderer
+    ? { state: 'offline' }
+    : isLoading
+      ? { state: 'working' }
+      : convStatus || { state: 'connecting' };
+  const modelInfo =
+    modelByConv[activeConvId] ||
+    (!ipcRenderer ? 'No model' : convStatus?.state === 'failed' ? 'Unavailable' : 'Connecting…');
   const thinkingLevel = thinkingByConv[activeConvId] || 'medium';
   // 目前模型支援的思考等級（依 pi 回報的模型定義，各供應商的實際參數由 pi 對應）
   const [thinkingLevelsByConv, setThinkingLevelsByConv] = useState<Record<string, ThinkingLevel[]>>({});
@@ -185,7 +200,8 @@ export const App: React.FC = () => {
   const [renameTarget, setRenameTarget] = useState<Session | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Session | null>(null);
-  const [toast, setToast] = useState('');
+  // 成功訊息會自動消失；錯誤訊息保留到使用者關閉，並可完整選取、複製
+  const [toast, setToast] = useState<{ text: string; error?: boolean } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [expandAllCmd, setExpandAllCmd] = useState<{ action: 'expand' | 'collapse'; nonce: number } | null>(null);
 
@@ -202,9 +218,37 @@ export const App: React.FC = () => {
   const convIdByFileRef = useRef<Record<string, string>>({});
 
   const showToast = useCallback((msg: string) => {
-    setToast(msg);
+    setToast({ text: msg });
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(''), 2600);
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  const showError = useCallback((msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ text: msg, error: true });
+  }, []);
+
+  const setConvStatus = useCallback((convId: string, status: ConvStatus) => {
+    if (!convId) return;
+    setStatusByConv(prev => ({ ...prev, [convId]: status }));
+  }, []);
+
+  // 開始連線：已就緒的對話不退回「連線中」（閒置回收後送出訊息會自動重生）
+  const markConnecting = useCallback((convId: string) => {
+    if (!convId) return;
+    setStatusByConv(prev =>
+      prev[convId]?.state === 'ready' ? prev : { ...prev, [convId]: { state: 'connecting' } }
+    );
+  }, []);
+
+  // 連線失敗：若 pi:status 已回報較具體的原因，保留那一則
+  const markFailed = useCallback((convId: string, e: any) => {
+    if (!convId) return;
+    setStatusByConv(prev =>
+      prev[convId]?.state === 'failed'
+        ? prev
+        : { ...prev, [convId]: { state: 'failed', error: e?.message || 'Could not start pi' } }
+    );
   }, []);
 
   const pushSessionLog = useCallback((text: string) => {
@@ -361,12 +405,13 @@ export const App: React.FC = () => {
     ipcRenderer.on('core:info', handleCoreInfo);
 
     // Pi 就緒事件（每個對話都會回報自己的狀態）
-    // pi 程序非預期結束（啟動失敗、SSH 斷線等）：別讓模型一直停在「連接中」
+    // pi 程序非預期結束（啟動失敗、SSH 斷線等）：標為已中斷，頂列顯示錯誤並可重試
     ipcRenderer.on('pi:status', (_event: any, data: any) => {
       const convId = data?.convId as string;
       if (!convId || data.running || data.intentional) return;
-      setModelByConv(prev => ({ ...prev, [convId]: 'Connection failed' }));
-      pushSessionLog(`[Pi Exit] ${convId} | ${data.error || `exit code ${data.code}`}`);
+      const error = data.error || `pi exited with code ${data.code}`;
+      setConvStatus(convId, { state: 'failed', error });
+      pushSessionLog(`[Pi Exit] ${convId} | ${error}`);
     });
 
     ipcRenderer.on('pi:ready', (_event: any, data: any) => {
@@ -380,6 +425,7 @@ export const App: React.FC = () => {
       }
       const modelName = data.model?.name || data.model?.id || 'Connected Model';
       if (convId) {
+        setConvStatus(convId, { state: 'ready' });
         setModelByConv(prev => ({ ...prev, [convId]: modelName }));
         if (data.thinkingLevel) setThinkingByConv(prev => ({ ...prev, [convId]: data.thinkingLevel }));
         if (data.model) setThinkingLevelsByConv(prev => ({ ...prev, [convId]: supportedThinkingLevels(data.model) }));
@@ -606,14 +652,47 @@ export const App: React.FC = () => {
     }
   }, [activeConvId]);
 
-  // 首次載入：先為目前工作區準備一個新對話程序（閒置時可被回收）
+  // 首次載入：取得主程序的工作目錄作為預設工作區，再為它準備一個新對話程序（閒置時可被回收）
   useEffect(() => {
-    if (!ipcRenderer) return;
+    const ipc = ipcRenderer;
+    if (!ipc) return;
     const convId = `draft:${uuid()}`;
     activeConvIdRef.current = convId;
     setActiveConvId(convId);
-    ipcRenderer.invoke('pi:ensure-session', { convId, cwd: currentProjectRef.current.path });
-  }, []);
+    setConvStatus(convId, { state: 'connecting' });
+    ipc
+      .invoke('pi:get-default-workspace')
+      .then((dir: string) => {
+        if (!dir || currentProjectRef.current.path) return;
+        const proj: Project = { ...currentProjectRef.current, name: baseName(dir), path: dir };
+        currentProjectRef.current = proj;
+        setCurrentProject(proj);
+        setProjects(prev => prev.map(p => (p.id === DEFAULT_PROJECT.id ? { ...p, name: proj.name, path: dir } : p)));
+      })
+      .catch(() => { /* 取不到時主程序會以自己的工作目錄啟動 */ })
+      .finally(() => {
+        ipc
+          .invoke('pi:ensure-session', { convId, cwd: currentProjectRef.current.path || undefined })
+          .catch((e: any) => markFailed(convId, e));
+      });
+  }, [setConvStatus, markFailed]);
+
+  // 重試目前對話的連線（程序啟動失敗或非預期結束後）
+  const handleRetryConnection = useCallback(async () => {
+    const convId = activeConvIdRef.current;
+    if (!ipcRenderer || !convId) return;
+    setConvStatus(convId, { state: 'connecting' });
+    try {
+      await ipcRenderer.invoke('pi:ensure-session', {
+        convId,
+        cwd: currentProjectRef.current.path || undefined,
+        ssh: currentProjectRef.current.ssh,
+        sessionFile: convFileByIdRef.current[convId],
+      });
+    } catch (e: any) {
+      markFailed(convId, e);
+    }
+  }, [setConvStatus, markFailed]);
 
   // 發送訊息給真實的 Pi
   const handleSendMessage = useCallback((text: string) => {
@@ -635,6 +714,7 @@ export const App: React.FC = () => {
     setConvLoading(convId, true);
 
     if (ipcRenderer) {
+      markConnecting(convId);
       ipcRenderer.send('pi:send-prompt', {
         convId,
         message: text,
@@ -663,7 +743,7 @@ export const App: React.FC = () => {
         ]);
       }, 800);
     }
-  }, [updateConvMessages, setConvLoading, settlePendingSession]);
+  }, [updateConvMessages, setConvLoading, settlePendingSession, markConnecting]);
 
   const handleStop = useCallback(() => {
     const convId = activeConvIdRef.current;
@@ -704,9 +784,10 @@ export const App: React.FC = () => {
 
     // 在背景為此對話啟動 pi，才能顯示目前模型 / 思考等級並切換（閒置後會自動回收）
     if (ipcRenderer && session.filePath) {
+      markConnecting(convId);
       ipcRenderer
         .invoke('pi:ensure-session', { convId, cwd: project?.path || currentProjectRef.current.path, sessionFile: session.filePath, ssh })
-        .catch((e: any) => console.error('Failed to start session process:', e));
+        .catch((e: any) => markFailed(convId, e));
     }
 
     // 已有記憶體中的訊息（例如背景正在串流）→ 直接顯示，不要蓋掉最新內容
@@ -719,18 +800,8 @@ export const App: React.FC = () => {
           'pi:load-session',
           ssh ? { filePath: session.filePath, ssh } : session.filePath
         );
-        updateConvMessages(convId, () =>
-          Array.isArray(history) && history.length > 0
-            ? history
-            : [
-                {
-                  id: `empty-${Date.now()}`,
-                  role: 'assistant' as const,
-                  content: 'No messages in this session.',
-                  timestamp: Date.now(),
-                },
-              ]
-        );
+        // 空會話不塞假訊息，交給對話區的空狀態顯示
+        updateConvMessages(convId, () => (Array.isArray(history) ? history : []));
       } catch (e) {
         console.error('Failed to load session:', e);
       }
@@ -756,11 +827,16 @@ export const App: React.FC = () => {
     setBashByConv(prev => ({ ...prev, [convId]: [] }));
     setLoadingByConv(prev => ({ ...prev, [convId]: false }));
     if (ipcRenderer) {
-      await ipcRenderer.invoke('pi:ensure-session', {
-        convId,
-        cwd: project.path,
-        ssh: project.ssh,
-      });
+      setConvStatus(convId, { state: 'connecting' });
+      try {
+        await ipcRenderer.invoke('pi:ensure-session', {
+          convId,
+          cwd: project.path,
+          ssh: project.ssh,
+        });
+      } catch (e) {
+        markFailed(convId, e);
+      }
     }
     loadWorkspaceFiles(project.path, project.ssh || null);
   };
@@ -832,7 +908,7 @@ export const App: React.FC = () => {
     if (res?.success) {
       await loadRealProjects();
     } else {
-      showToast('Rename failed: ' + (res?.error || 'unknown error'));
+      showError('Rename failed: ' + (res?.error || 'unknown error'));
     }
     setRenameTarget(null);
   };
@@ -847,7 +923,7 @@ export const App: React.FC = () => {
       showToast('Conversation duplicated');
       await loadRealProjects();
     } else {
-      showToast('Duplicate failed: ' + (res?.error || 'unknown error'));
+      showError('Duplicate failed: ' + (res?.error || 'unknown error'));
     }
   };
 
@@ -870,7 +946,7 @@ export const App: React.FC = () => {
       ssh: session.ssh,
     });
     if (res?.success) showToast('Exported to ' + res.path);
-    else showToast('Export failed: ' + (res?.error || 'unknown error'));
+    else showError('Export failed: ' + (res?.error || 'unknown error'));
   };
 
   const handleCopyPath = async (text: string) => {
@@ -898,7 +974,7 @@ export const App: React.FC = () => {
       }
       await loadRealProjects();
     } else {
-      showToast('Delete failed: ' + (res?.error || 'unknown error'));
+      showError('Delete failed: ' + (res?.error || 'unknown error'));
     }
     setDeleteTarget(null);
   };
@@ -956,7 +1032,7 @@ export const App: React.FC = () => {
     if (res?.success && Array.isArray(res.messages)) {
       updateConvMessages(target.convId, () => res.messages);
     } else {
-      showToast('Could not switch branch: ' + (res?.error || 'unknown error'));
+      showError('Could not switch branch: ' + (res?.error || 'unknown error'));
     }
   }, [resolveActiveSessionTarget, updateConvMessages]);
 
@@ -973,7 +1049,7 @@ export const App: React.FC = () => {
       convId: target.convId,
     });
     if (!res?.success) {
-      showToast('Could not create edit branch: ' + (res?.error || 'unknown error'));
+      showError('Could not create edit branch: ' + (res?.error || 'unknown error'));
       return;
     }
     if (Array.isArray(res.messages)) {
@@ -995,7 +1071,7 @@ export const App: React.FC = () => {
       convId: target.convId,
     });
     if (!res?.success) {
-      showToast('Regenerate failed: ' + (res?.error || 'unknown error'));
+      showError('Regenerate failed: ' + (res?.error || 'unknown error'));
       return;
     }
     if (Array.isArray(res.messages)) {
@@ -1016,7 +1092,7 @@ export const App: React.FC = () => {
       ssh: target.ssh,
     });
     if (!res?.success || !res.newPath) {
-      showToast('Fork failed: ' + (res?.error || 'unknown error'));
+      showError('Fork failed: ' + (res?.error || 'unknown error'));
       return;
     }
     const list = await loadRealProjects();
@@ -1052,7 +1128,7 @@ export const App: React.FC = () => {
     if (res?.success && Array.isArray(res.messages)) {
       updateConvMessages(target.convId, () => res.messages);
     } else {
-      showToast('Could not update bookmark: ' + (res?.error || 'unknown error'));
+      showError('Could not update bookmark: ' + (res?.error || 'unknown error'));
     }
   }, [resolveActiveSessionTarget, updateConvMessages]);
 
@@ -1071,7 +1147,7 @@ export const App: React.FC = () => {
     if (res?.success && Array.isArray(res.messages)) {
       updateConvMessages(target.convId, () => res.messages);
     } else {
-      showToast('Could not update context: ' + (res?.error || 'unknown error'));
+      showError('Could not update context: ' + (res?.error || 'unknown error'));
     }
   }, [resolveActiveSessionTarget, updateConvMessages]);
 
@@ -1175,7 +1251,7 @@ export const App: React.FC = () => {
       return;
     }
     const res = await ipcRenderer.invoke('profile:select-for-conv', { convId: activeConvId, profileId });
-    if (!res?.success) showToast(`Could not switch profile: ${res?.error || 'unknown error'}`);
+    if (!res?.success) showError(`Could not switch profile: ${res?.error || 'unknown error'}`);
     else if (res.deferred) showToast('Profile will apply when the session starts');
   }, [activeConvId]);
 
@@ -1192,17 +1268,20 @@ export const App: React.FC = () => {
     const res = await ipcRenderer.invoke('pi:set-thinking-level', { convId, level });
     if (!res?.success) {
       setThinkingByConv(prev => ({ ...prev, [convId]: prevLevel }));
-      showToast(`Could not change thinking level: ${res?.error || 'unknown error'}`);
+      showError(`Could not change thinking level: ${res?.error || 'unknown error'}`);
     }
   }, [activeConvId, thinkingByConv]);
 
   const openModelSettings = useCallback(() => setIsModelSettingsOpen(true), []);
 
+  // 預設工作區取得實際路徑前不列在側欄
+  const visibleProjects = useMemo(() => projects.filter(p => p.ssh || p.path), [projects]);
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-canvas">
       {/* 1. 左側欄：Projects / Sessions 樹狀清單 */}
       <Sidebar
-        projects={projects}
+        projects={visibleProjects}
         activeSessionId={activeSessionId}
         onSelectSession={handleSelectSession}
         onNewSession={handleNewSession}
@@ -1253,6 +1332,8 @@ export const App: React.FC = () => {
         onSetMessageLabel={handleSetMessageLabel}
         onToggleMessageOmit={handleToggleMessageOmit}
         onOpenPath={handleOpenPathInRightPanel}
+        connection={connection}
+        onRetryConnection={handleRetryConnection}
       />
 
       {/* 可拖曳分隔線：中間對話區 ↔ 右側欄 */}
@@ -1396,12 +1477,33 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* 8. 輕量提示 toast */}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1200] rounded-lg border border-line-strong bg-overlay px-4 py-2 text-sm text-zinc-100 shadow-2xl max-w-[70vw] truncate">
-          {toast}
-        </div>
-      )}
+      {/* 8. 提示：成功訊息自動消失（polite）；錯誤保留全文直到關閉（alert） */}
+      <div aria-live="polite" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1200] max-w-[min(640px,80vw)]">
+        {toast && !toast.error && (
+          <div className="rounded-lg border border-line-strong bg-overlay px-4 py-2 text-sm text-fg-strong shadow-2xl">
+            {toast.text}
+          </div>
+        )}
+        {toast?.error && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-lg border border-danger/40 bg-overlay py-2 pl-3 pr-1.5 text-sm text-fg-strong shadow-2xl"
+          >
+            <AlertCircle size={15} className="mt-0.5 shrink-0 text-danger" />
+            <span className="min-w-0 flex-1 select-text break-words">{toast.text}</span>
+            <button
+              title="Copy error"
+              onClick={() => (ipcRenderer ? ipcRenderer.invoke('clipboard:write', toast.text) : navigator.clipboard?.writeText(toast.text))}
+              className="icon-btn"
+            >
+              <Copy size={13} />
+            </button>
+            <button title="Dismiss" onClick={() => setToast(null)} className="icon-btn">
+              <X size={13} />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
