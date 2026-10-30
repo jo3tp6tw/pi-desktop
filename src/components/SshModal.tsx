@@ -310,7 +310,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                     已連上 <strong className="font-mono">{host.trim()}</strong>（Node {browseData.nodeVersion}）
                   </span>
                 </div>
-                <div className="font-mono">
+                <div>
                   {browseData.piAvailable ? (
                     <span className="text-emerald-300">
                       ✓ 遠端 Pi 已就緒 ({browseData.piPath})
@@ -468,7 +468,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                               e.stopPropagation();
                               handleConfirmOpenPath(dir.path);
                             }}
-                            className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/30 text-[11px] transition shrink-0"
+                            className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/30 text-2xs transition shrink-0"
                           >
                             選擇此目錄
                           </button>
@@ -508,7 +508,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                           <div className="text-sm font-medium text-zinc-100 truncate flex items-center gap-2">
                             <Folder size={14} className="text-cyan-400 shrink-0" />
                             <span>{dp.name}</span>
-                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono">
+                            <span className="text-2xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
                               {dp.sessionCount} 個對話
                             </span>
                           </div>

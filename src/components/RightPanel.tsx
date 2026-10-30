@@ -57,7 +57,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
       className="h-full shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden select-none"
     >
       {/* 頂部 Tab 切換列 */}
-      <div className="h-11 px-1.5 bg-surface-2 border-b border-line flex items-center justify-between text-sm text-zinc-400">
+      <div className="h-11 px-1.5 bg-surface-2 border-b border-line flex items-center justify-between text-xs text-zinc-400">
         <div className="flex items-center space-x-1">
           {/* Files Tab */}
           <button
@@ -121,7 +121,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
           <div className="h-full select-text" style={{ display: activeTab === 'terminal' ? 'block' : 'none' }}>
             <Suspense
               fallback={
-                <div className="h-full flex items-center justify-center text-xs text-fg-subtle font-mono">
+                <div className="h-full flex items-center justify-center text-xs text-fg-subtle">
                   載入終端機中...
                 </div>
               }

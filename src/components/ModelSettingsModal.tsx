@@ -286,14 +286,14 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                   >
                     {isRemote ? <Server size={12} className="text-cyan-400" /> : <Monitor size={12} />}
                     <span className="truncate max-w-[140px]">{env.label}</span>
-                    <span className="text-[10px] font-normal text-fg-subtle truncate max-w-[120px]">
+                    <span className="text-2xs font-normal text-fg-subtle truncate max-w-[120px]">
                       · {def ? def.name : '未指定'}
                     </span>
                     {catalogs[env.key]?.version && (
-                      <span className="text-[10px] font-mono font-normal text-fg-subtle">pi v{catalogs[env.key].version}</span>
+                      <span className="text-2xs tabular-nums font-normal text-fg-subtle">pi v{catalogs[env.key].version}</span>
                     )}
                     {env.key === activeEnv.key && (
-                      <span className="text-[10px] px-1 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800/60">
+                      <span className="text-2xs px-1 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800/60">
                         目前對話
                       </span>
                     )}
@@ -345,7 +345,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-zinc-100 truncate">{p.name}</span>
                         {isDefault && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">
+                          <span className="text-2xs px-1.5 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60">
                             預設
                           </span>
                         )}
@@ -355,12 +355,12 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {chips.map((c) => (
-                          <span key={c} className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-mono">
+                          <span key={c} className="text-2xs px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400">
                             {c}
                           </span>
                         ))}
                         {warning && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded bg-amber-950/50 text-amber-300 border border-amber-800/50">
+                          <span className="text-2xs px-1.5 py-0.5 rounded bg-amber-950/50 text-amber-300 border border-amber-800/50">
                             {warning}
                           </span>
                         )}
@@ -397,7 +397,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                         <button
                           onClick={() => deleteProfile(p.id)}
                           disabled={busy}
-                          className="px-2 py-1 rounded-md text-[11px] bg-danger-solid text-white border border-danger/40 hover:brightness-110 transition"
+                          className="px-2 py-1 rounded-md text-2xs bg-danger-solid text-white border border-danger/40 hover:brightness-110 transition"
                         >
                           確認刪除
                         </button>
@@ -429,7 +429,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
               </div>
             </div>
 
-            <div className="px-6 py-2.5 border-t border-zinc-800 bg-zinc-900/70 text-[11px] text-fg-subtle">
+            <div className="px-6 py-2.5 border-t border-zinc-800 bg-zinc-900/70 text-2xs text-fg-subtle">
               勾選即在「{envLabel(envKey)}」啟用；變更會立即寫入該環境的 ~/.pi/agent，並重新啟動其對話以套用。
             </div>
           </>
@@ -630,7 +630,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
                 {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
             </div>
-            <p className="text-[11px] text-fg-subtle mt-1">也可填 $環境變數名稱，例如 $DEEPSEEK_API_KEY，由執行 pi 的環境提供</p>
+            <p className="text-2xs text-fg-subtle mt-1">也可填 $環境變數名稱，例如 $DEEPSEEK_API_KEY，由執行 pi 的環境提供</p>
           </div>
         </section>
 
@@ -642,7 +642,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
               type="button"
               onClick={resetDefaults}
               disabled={!isModified}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-zinc-400 border border-zinc-700/60 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-40 transition"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-2xs text-zinc-400 border border-zinc-700/60 hover:text-zinc-100 hover:bg-zinc-800 disabled:opacity-40 transition"
             >
               <RotateCcw size={11} />
               <span>恢復預設</span>
@@ -744,7 +744,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
             </div>
           ) : (
             base && (
-              <p className="text-[11px] text-fg-subtle">
+              <p className="text-2xs text-fg-subtle">
                 此模型使用 {base.api} 格式，不支援 Temperature / Top P 等採樣參數。
               </p>
             )

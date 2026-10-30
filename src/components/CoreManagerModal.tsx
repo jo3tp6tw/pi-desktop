@@ -166,7 +166,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
           <div className="p-3.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-zinc-400">生效版本：</span>
-              <span className="font-mono text-sm font-bold text-zinc-100">
+              <span className="tabular-nums text-sm font-bold text-zinc-100">
                 v{coreInfo?.version || '1.3.0'}
               </span>
             </div>
@@ -229,7 +229,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
                 <span className="font-semibold flex items-center gap-1.5">
                   <DownloadCloud className="w-4 h-4" /> 發現新版本！
                 </span>
-                <span className="font-mono font-bold">v{updateResult.latestVersion}</span>
+                <span className="tabular-nums font-bold">v{updateResult.latestVersion}</span>
               </div>
               <p className="text-xs text-zinc-400">
                 更新檔將安全下載至使用者的 AppData 目錄，完全不影響內建的基礎備份。

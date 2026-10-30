@@ -109,8 +109,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Projects 區塊 */}
         <div className="mb-4">
-          <div className="flex items-center justify-between px-2 mb-2 text-[15.5px] font-semibold text-zinc-400">
-            <span className="text-[15.5px] font-medium text-zinc-300">Projects</span>
+          <div className="flex items-center justify-between px-2 mb-2 text-xs text-zinc-400">
+            <span className="text-xs font-semibold text-zinc-300">Projects</span>
             <div className="flex items-center space-x-1.5">
               <button 
                 title="Filter projects" 
@@ -141,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               // 預設只展開最新對話所在的專案，其餘收合
               const isExpanded = expandedProjects[project.id] ?? (project.id === mostRecentProjectId && !!project.sessions.length);
               return (
-                <div key={project.id} className="text-[16.5px]">
+                <div key={project.id} className="text-sm">
                   {/* 專案資料夾名稱 */}
                   <div
                     onClick={() => toggleProject(project.id)}
@@ -160,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
                     <span className="font-medium flex-1 truncate">{project.name}</span>
                     {project.ssh && (
-                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono shrink-0">
+                      <span className="text-2xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shrink-0">
                         SSH
                       </span>
                     )}
@@ -191,14 +191,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               onSessionContextMenu?.(session, project, e.clientX, e.clientY);
                             }}
                             title={session.filePath || session.title}
-                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-md cursor-pointer text-[16.5px] transition group ${
+                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-md cursor-pointer text-sm transition group ${
                               isActive
                                 ? 'bg-zinc-700/60 text-zinc-100 font-medium'
                                 : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
                             }`}
                           >
                             <span className="truncate pr-2">{session.title}</span>
-                            <span className="text-[12px] text-fg-subtle whitespace-nowrap group-hover:text-zinc-400">
+                            <span className="text-2xs tabular-nums text-fg-subtle whitespace-nowrap group-hover:text-zinc-400">
                               {session.timeAgo}
                             </span>
                           </div>
@@ -215,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* 底部工作區狀態 & 核心管理 */}
-      <div className="p-3 border-t border-line bg-zinc-900/60 text-[15px] flex items-center justify-between text-zinc-400">
+      <div className="p-3 border-t border-line bg-zinc-900/60 text-xs flex items-center justify-between text-zinc-400">
         <button
           onClick={onOpenCoreManager}
           title="點擊管理 Pi 核心與檢查更新"
@@ -228,10 +228,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             title={coreInfo?.description || 'Pi RPC Ready'}
           />
           <div className="truncate flex flex-col">
-            <span className="truncate font-mono text-[13px] font-medium text-zinc-200">
+            <span className="truncate text-xs tabular-nums font-medium text-zinc-200">
               Pi Core v{coreInfo?.version || '1.3.0'}
             </span>
-            <span className="text-[13px] text-fg-subtle font-mono">
+            <span className="text-xs text-fg-subtle">
               {coreInfo?.type === 'user' ? '已更新版' : coreInfo?.type === 'bundled' ? '內建封裝' : '系統全域'}
             </span>
           </div>

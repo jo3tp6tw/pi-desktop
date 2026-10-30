@@ -1005,7 +1005,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   />
                 )}
                 {activeFile.size > 0 && (
-                  <span className="text-[11px] text-fg-subtle font-mono shrink-0">
+                  <span className="text-2xs text-fg-subtle tabular-nums shrink-0">
                     ({formatBytes(activeFile.size)})
                   </span>
                 )}
@@ -1017,7 +1017,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           {activeFile && !fileLoading && !fileError && (
             <div className="flex items-center gap-1 shrink-0">
               {saveToast && (
-                <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <span className="text-2xs px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                   {saveToast}
                 </span>
               )}
@@ -1028,7 +1028,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   <button
                     onClick={() => setViewMode('preview')}
                     title="渲染預覽"
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] transition ${
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs transition ${
                       viewMode === 'preview'
                         ? 'bg-zinc-700 text-zinc-100 font-medium'
                         : 'text-zinc-400 hover:text-zinc-200'
@@ -1040,7 +1040,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   <button
                     onClick={() => setViewMode('code')}
                     title="Monaco 原始碼編輯"
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] transition ${
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs transition ${
                       viewMode === 'code'
                         ? 'bg-zinc-700 text-zinc-100 font-medium'
                         : 'text-zinc-400 hover:text-zinc-200'
@@ -1146,7 +1146,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         {/* 主內容區 */}
         <div className="flex-1 overflow-hidden relative select-text">
           {fileLoading ? (
-            <div className="h-full flex items-center justify-center gap-2 text-xs text-zinc-400 font-mono">
+            <div className="h-full flex items-center justify-center gap-2 text-xs text-zinc-400">
               <Loader2 size={15} className="animate-spin text-amber-400" />
               <span>正在讀取檔案...</span>
             </div>
@@ -1177,7 +1177,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
             <div className="h-full flex flex-col overflow-hidden">
               {/* 圖片預覽控制列 */}
               <div className="h-8 px-3 bg-surface-2 border-b border-line flex items-center justify-between text-xs text-zinc-400 select-none">
-                <span className="font-mono text-[11px]">
+                <span className="text-2xs tabular-nums">
                   {imageDimensions ? `${imageDimensions.w} × ${imageDimensions.h} px` : '圖片預覽'}
                 </span>
                 <div className="flex items-center gap-1">
@@ -1188,7 +1188,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   >
                     <ZoomOut size={13} />
                   </button>
-                  <span className="font-mono text-[11px] w-12 text-center">{imageZoom}%</span>
+                  <span className="text-2xs tabular-nums w-12 text-center">{imageZoom}%</span>
                   <button
                     onClick={() => setImageZoom((z) => Math.min(400, z + 25))}
                     title="放大"
@@ -1242,7 +1242,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           ) : activeFile ? (
             <Suspense
               fallback={
-                <div className="h-full flex items-center justify-center gap-2 text-xs text-fg-subtle font-mono">
+                <div className="h-full flex items-center justify-center gap-2 text-xs text-fg-subtle">
                   <Loader2 size={14} className="animate-spin text-amber-400" />
                   <span>載入 Monaco Editor...</span>
                 </div>
@@ -1316,7 +1316,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
             </button>
           </div>
         ) : dirLoading && items.length === 0 ? (
-          <div className="h-32 flex items-center justify-center gap-2 text-xs text-fg-subtle font-mono">
+          <div className="h-32 flex items-center justify-center gap-2 text-xs text-fg-subtle">
             <Loader2 size={14} className="animate-spin text-amber-400" />
             <span>正在讀取目錄...</span>
           </div>
@@ -1442,7 +1442,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   </div>
 
                   {!item.isDirectory && !node.isEditing && item.size !== undefined && (
-                    <span className="text-[11px] font-mono text-fg-subtle ml-2 shrink-0">
+                    <span className="text-2xs tabular-nums text-fg-subtle ml-2 shrink-0">
                       {formatBytes(item.size)}
                     </span>
                   )}
@@ -1483,7 +1483,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 </>
               ) : (
                 <>
-                  確定要刪除選取的 <span className="font-mono text-zinc-100">{deleteTargets.length}</span> 個項目嗎？
+                  確定要刪除選取的 <span className="tabular-nums text-zinc-100">{deleteTargets.length}</span> 個項目嗎？
                 </>
               )}
               <br />

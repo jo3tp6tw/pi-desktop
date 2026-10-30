@@ -108,7 +108,7 @@ const IconTipButton: React.FC<IconTipButtonProps> = ({
         {icon}
       </button>
       <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-40">
-        <div className="px-2 py-1 rounded-md bg-zinc-950/95 border border-zinc-700/80 text-[11px] font-sans text-zinc-200 whitespace-nowrap shadow-xl">
+        <div className="px-2 py-1 rounded-md bg-zinc-950/95 border border-zinc-700/80 text-2xs text-zinc-200 whitespace-nowrap shadow-xl">
           {tooltip}
         </div>
       </div>
@@ -197,10 +197,10 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
           }
         }}
         title={state === 0 ? (summary ? `${summary} (點擊展開)` : '展開指令') : state === 1 ? '顯示輸出' : '收合'}
-        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left font-mono hover:text-zinc-100 transition-colors cursor-pointer select-none"
+        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
       >
         <Terminal size={13} className="text-purple-400 shrink-0" />
-        <span className="shrink-0 text-purple-400 font-semibold">{tool.name}</span>
+        <span className="shrink-0 font-mono text-purple-400 font-semibold">{tool.name}</span>
         {state === 0 && summary ? (
           filePathArg && onOpenPath ? (
             <>
@@ -219,14 +219,14 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
                   }
                 }}
                 title={filePathArg}
-                className="truncate text-fg-subtle hover:text-zinc-200 transition-colors cursor-pointer text-left"
+                className="truncate font-mono text-fg-subtle hover:text-zinc-200 transition-colors cursor-pointer text-left"
               >
                 {summary}
               </span>
               <span className="flex-1 min-w-0" />
             </>
           ) : (
-            <span className="flex-1 min-w-0 truncate text-fg-subtle text-left" title={summary}>
+            <span className="flex-1 min-w-0 truncate font-mono text-fg-subtle text-left" title={summary}>
               {summary}
             </span>
           )
@@ -234,7 +234,7 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
           <span className="flex-1 min-w-0" />
         )}
         <span
-          className={`text-xs shrink-0 font-mono ${
+          className={`text-xs shrink-0 ${
             tool.status === 'failed'
               ? 'text-danger'
               : running
@@ -400,7 +400,7 @@ const MessageItem = React.memo<MessageItemProps>(({
       <div className={`flex flex-col space-y-1.5 min-w-0 ${isUser ? 'max-w-[85%] items-end' : 'flex-1 min-w-0 items-stretch w-full'}`}>
         {/* 若使用者訊息有書籤標記，顯示於對話框右上角 */}
         {isUser && message.label && !isLabelOpen && (
-          <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-medium">
+          <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-2xs font-medium">
             <Bookmark size={11} className="fill-amber-400/40 text-amber-400 shrink-0" />
             <span className="truncate max-w-[200px]">{message.label}</span>
           </div>
@@ -460,7 +460,7 @@ const MessageItem = React.memo<MessageItemProps>(({
                   <button
                     type="button"
                     onClick={() => toggleThinking(partKey)}
-                    className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left font-mono hover:text-zinc-100 transition-colors"
+                    className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors"
                   >
                     <Sparkles size={13} className="text-amber-400 shrink-0" />
                     <span className="shrink-0 text-amber-400 font-semibold">Thinking</span>
@@ -595,7 +595,7 @@ const MessageItem = React.memo<MessageItemProps>(({
                   onClick={handlePrevBranch}
                   className="!p-1"
                 />
-                <span className="px-1 text-[11px] font-mono text-zinc-300">
+                <span className="px-1 text-2xs tabular-nums text-zinc-300">
                   {branchIndex + 1} / {branchCount}
                 </span>
                 <IconTipButton
@@ -840,7 +840,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           {envLabel ? (
             <span
               title={`此對話的 pi 在遠端主機 ${envLabel} 上執行`}
-              className="shrink-0 flex items-center space-x-1 text-[11px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono"
+              className="shrink-0 flex items-center space-x-1 text-2xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
             >
               <Server size={11} />
               <span className="truncate max-w-[140px]">{envLabel}</span>
@@ -848,7 +848,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           ) : (
             <span
               title="此對話的 pi 在本機執行"
-              className="shrink-0 flex items-center space-x-1 text-[11px] px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700/60 font-mono"
+              className="shrink-0 flex items-center space-x-1 text-2xs px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700/60"
             >
               <Monitor size={11} />
               <span>本機</span>
@@ -865,7 +865,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         <div className="flex items-center space-x-3 text-sm">
           <div className="flex items-center space-x-1.5 text-zinc-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-xs font-mono">Active</span>
+            <span className="text-xs">Active</span>
           </div>
         </div>
       </header>

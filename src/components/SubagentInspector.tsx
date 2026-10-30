@@ -42,8 +42,8 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
   return (
     <div className="h-full flex flex-col bg-canvas overflow-hidden select-text">
       {/* 頂部標題 */}
-      <div className="h-10 px-2 bg-surface border-b border-line flex items-center justify-between text-sm text-zinc-400 select-none">
-        <span className="font-mono text-zinc-300 font-medium">Subagents Inspector</span>
+      <div className="h-10 px-2 bg-surface border-b border-line flex items-center justify-between text-xs text-zinc-400 select-none">
+        <span className="text-zinc-300 font-medium">Subagents Inspector</span>
         <span className="text-xs text-fg-subtle">
           {subagents.length} Agent{subagents.length > 1 ? 's' : ''} Active
         </span>
@@ -67,7 +67,7 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
                 <button
                   key={agent.id}
                   onClick={() => onSelectSubagent(agent.id)}
-                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-sm transition shrink-0 ${
+                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs transition shrink-0 ${
                     isSelected
                       ? 'bg-zinc-800 text-zinc-100 font-medium border border-zinc-700/80'
                       : 'text-zinc-400 hover:bg-zinc-800/40 hover:text-zinc-200'
@@ -93,7 +93,7 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
               <div className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-sm space-y-1.5">
                 <div className="flex items-center justify-between text-zinc-400 text-xs">
                   <span>子任務指派 (Isolated Context):</span>
-                  <span className="font-mono text-emerald-400">{currentSubagent.tokensUsed || 0} tokens</span>
+                  <span className="tabular-nums text-emerald-400">{currentSubagent.tokensUsed || 0} tokens</span>
                 </div>
                 <div className="text-zinc-200 font-medium">
                   {currentSubagent.task}

@@ -58,7 +58,7 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
   const level = (thinkingLevel || 'off') as ThinkingLevel;
 
   const pill =
-    'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition border border-transparent hover:bg-zinc-800 hover:border-zinc-700/60';
+    'flex items-center gap-1.5 px-2 py-1 rounded-md text-2xs font-medium transition border border-transparent hover:bg-zinc-800 hover:border-zinc-700/60';
 
   return (
     <div ref={ref} className="relative flex items-center gap-1">
@@ -81,13 +81,13 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
         } ${menu === 'thinking' ? 'bg-zinc-800 border-zinc-700/60' : ''}`}
       >
         <Brain size={12} className={level !== 'off' && canThink ? 'text-primary' : 'text-fg-subtle'} />
-        <span className="font-mono">{canThink ? level : 'off'}</span>
+        <span>{canThink ? level : 'off'}</span>
         {canThink && <ChevronDown size={11} className="text-fg-subtle" />}
       </button>
 
       {menu === 'profile' && (
         <div className="absolute left-0 bottom-full mb-2 w-72 z-30 rounded-xl border border-zinc-700/80 bg-overlay shadow-2xl py-1.5 text-xs">
-          <div className="px-3 py-1 text-[11px] text-fg-subtle">「{envLabel || '本機'}」已啟用的模型設定檔</div>
+          <div className="px-3 py-1 text-2xs text-fg-subtle">「{envLabel || '本機'}」已啟用的模型設定檔</div>
           {profiles.length === 0 && (
             <div className="px-3 py-2 text-zinc-400">此環境還沒有啟用任何設定檔</div>
           )}
@@ -106,9 +106,9 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
                 <span className="min-w-0">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate font-medium">{p.name}</span>
-                    {p.isDefault && <span className="text-[10px] text-amber-300/90">預設</span>}
+                    {p.isDefault && <span className="text-2xs text-amber-300/90">預設</span>}
                   </span>
-                  <span className="block truncate text-[11px] text-fg-subtle font-mono">{p.subtitle}</span>
+                  <span className="block truncate text-2xs text-fg-subtle font-mono">{p.subtitle}</span>
                 </span>
               </button>
             );
@@ -130,7 +130,7 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
 
       {menu === 'thinking' && (
         <div className="absolute left-0 bottom-full mb-2 w-36 z-30 rounded-xl border border-zinc-700/80 bg-overlay shadow-2xl py-1.5 text-xs">
-          <div className="px-3 py-1 text-[11px] text-fg-subtle">思考強度</div>
+          <div className="px-3 py-1 text-2xs text-fg-subtle">思考強度</div>
           {/* 由高到低排列 */}
           {[...thinkingLevels].reverse().map((l) => {
             const active = l === level;
@@ -144,7 +144,7 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
                 className={`w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 transition ${active ? 'text-zinc-100' : 'text-zinc-300'}`}
               >
                 <Check size={13} className={`shrink-0 ${active ? 'text-primary' : 'opacity-0'}`} />
-                <span className="flex-1 font-mono">{l}</span>
+                <span className="flex-1">{l}</span>
               </button>
             );
           })}

@@ -10,6 +10,33 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      // 明確列出字型（與 Windows 上原本實際顯示的字型相同）：
+      // 介面用無襯線字；等寬字只留給程式碼、路徑、指令與終端機。
+      fontFamily: {
+        sans: [
+          '"Segoe UI"',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Microsoft JhengHei UI"',
+          '"Microsoft JhengHei"',
+          '"PingFang TC"',
+          '"Noto Sans TC"',
+          'system-ui',
+          'sans-serif',
+          '"Segoe UI Emoji"',
+          '"Apple Color Emoji"',
+        ],
+        mono: [
+          'Consolas',
+          'ui-monospace',
+          'SFMono-Regular',
+          'Menlo',
+          'Monaco',
+          '"Liberation Mono"',
+          '"Courier New"',
+          'monospace',
+        ],
+      },
       // 統一字級比例：取代原本散落的 text-[10px]/[11px]/[11.5px]/[12px]。
       // 整體較原本放大約 1px，且越小的字放大越多，維持一致的視覺比例。
       fontSize: {

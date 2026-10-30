@@ -401,7 +401,7 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
                 <>
                   <button
                     onClick={() => addTab(undefined, false)}
-                    className="w-full text-left px-3 py-1.5 text-cyan-300 hover:bg-zinc-700/60 hover:text-cyan-100 flex items-center gap-1.5 font-mono text-xs"
+                    className="w-full text-left px-3 py-1.5 text-cyan-300 hover:bg-zinc-700/60 hover:text-cyan-100 flex items-center gap-1.5 text-xs"
                   >
                     <Server size={12} className="text-cyan-400 shrink-0" />
                     <span className="truncate">SSH: {ssh.host}</span>

@@ -111,10 +111,10 @@ export const DiffToolCard: React.FC<{
           }
         }}
         title={open ? '收合' : '展開 diff'}
-        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left font-mono hover:text-zinc-100 transition-colors cursor-pointer select-none"
+        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
       >
         <Icon size={13} className="text-sky-400 shrink-0" />
-        <span className="shrink-0 text-sky-400 font-semibold">{tool.name}</span>
+        <span className="shrink-0 font-mono text-sky-400 font-semibold">{tool.name}</span>
         {path ? (
           <span
             role="button"
@@ -133,16 +133,16 @@ export const DiffToolCard: React.FC<{
               }
             }}
             title={path}
-            className="truncate text-fg-subtle hover:text-zinc-200 transition-colors cursor-pointer text-left"
+            className="truncate font-mono text-fg-subtle hover:text-zinc-200 transition-colors cursor-pointer text-left"
           >
             {path}
           </span>
         ) : null}
         <span className="flex-1 min-w-0" />
-        {added > 0 && <span className="text-xs text-emerald-400 shrink-0 font-mono">+{added}</span>}
-        {removed > 0 && <span className="text-xs text-danger shrink-0 font-mono">-{removed}</span>}
+        {added > 0 && <span className="text-xs text-emerald-400 shrink-0 tabular-nums">+{added}</span>}
+        {removed > 0 && <span className="text-xs text-danger shrink-0 tabular-nums">-{removed}</span>}
         {(running || failed) && (
-          <span className={`text-xs shrink-0 font-mono ${failed ? 'text-danger' : 'text-amber-400'}`}>
+          <span className={`text-xs shrink-0 ${failed ? 'text-danger' : 'text-amber-400'}`}>
             {tool.status}
           </span>
         )}
