@@ -1209,7 +1209,7 @@ export const App: React.FC = () => {
   const openModelSettings = useCallback(() => setIsModelSettingsOpen(true), []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#121214]">
+    <div className="flex h-screen w-screen overflow-hidden bg-canvas">
       {/* 1. 左側欄：Projects / Sessions 樹狀清單 */}
       <Sidebar
         projects={projects}
@@ -1335,7 +1335,7 @@ export const App: React.FC = () => {
           onMouseDown={() => setRenameTarget(null)}
         >
           <div
-            className="w-[420px] rounded-xl border border-[#3f3f46] bg-[#1f1f23] p-5 shadow-2xl"
+            className="w-[420px] rounded-xl border border-line-strong bg-overlay p-5 shadow-2xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <h3 className="text-sm font-semibold text-zinc-100 mb-3 flex items-center gap-2">
@@ -1349,7 +1349,7 @@ export const App: React.FC = () => {
                 if (e.key === 'Enter') confirmRename();
                 if (e.key === 'Escape') setRenameTarget(null);
               }}
-              className="w-full rounded-md bg-[#121214] border border-[#3f3f46] px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+              className="w-full rounded-md bg-canvas border border-line-strong px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
               placeholder="輸入對話名稱"
             />
             <div className="mt-4 flex justify-end gap-2">
@@ -1361,7 +1361,7 @@ export const App: React.FC = () => {
               </button>
               <button
                 onClick={confirmRename}
-                className="px-3 py-1.5 rounded-md text-sm bg-blue-600 hover:bg-blue-500 text-white transition"
+                className="px-3 py-1.5 rounded-md text-sm bg-primary-solid hover:brightness-110 text-white transition"
               >
                 儲存
               </button>
@@ -1377,10 +1377,10 @@ export const App: React.FC = () => {
           onMouseDown={() => setDeleteTarget(null)}
         >
           <div
-            className="w-[420px] rounded-xl border border-[#3f3f46] bg-[#1f1f23] p-5 shadow-2xl"
+            className="w-[420px] rounded-xl border border-line-strong bg-overlay p-5 shadow-2xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-2">
               <AlertTriangle size={15} /> 刪除對話
             </h3>
             <p className="text-sm text-zinc-400 leading-relaxed">
@@ -1397,7 +1397,7 @@ export const App: React.FC = () => {
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-3 py-1.5 rounded-md text-sm bg-red-600 hover:bg-red-500 text-white transition"
+                className="px-3 py-1.5 rounded-md text-sm bg-danger-solid hover:brightness-110 text-white transition"
               >
                 刪除
               </button>
@@ -1408,7 +1408,7 @@ export const App: React.FC = () => {
 
       {/* 8. 輕量提示 toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1200] rounded-lg border border-[#3f3f46] bg-[#1f1f23] px-4 py-2 text-sm text-zinc-100 shadow-2xl max-w-[70vw] truncate">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1200] rounded-lg border border-line-strong bg-overlay px-4 py-2 text-sm text-zinc-100 shadow-2xl max-w-[70vw] truncate">
           {toast}
         </div>
       )}

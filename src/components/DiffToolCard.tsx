@@ -69,9 +69,9 @@ const diffFromArgs = (tool: ToolCall): DiffLine[] => {
 
 const lineStyle: Record<DiffLineKind, string> = {
   add: 'bg-emerald-500/10 text-emerald-300',
-  del: 'bg-rose-500/10 text-rose-300',
+  del: 'bg-danger/10 text-danger',
   ctx: 'text-zinc-400',
-  skip: 'text-zinc-600 bg-zinc-800/40',
+  skip: 'text-fg-subtle bg-zinc-800/40',
 };
 
 const lineSign: Record<DiffLineKind, string> = { add: '+', del: '-', ctx: ' ', skip: ' ' };
@@ -133,40 +133,40 @@ export const DiffToolCard: React.FC<{
               }
             }}
             title={path}
-            className="truncate text-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer text-left"
+            className="truncate text-fg-subtle hover:text-zinc-200 transition-colors cursor-pointer text-left"
           >
             {path}
           </span>
         ) : null}
         <span className="flex-1 min-w-0" />
         {added > 0 && <span className="text-xs text-emerald-400 shrink-0 font-mono">+{added}</span>}
-        {removed > 0 && <span className="text-xs text-rose-400 shrink-0 font-mono">-{removed}</span>}
+        {removed > 0 && <span className="text-xs text-danger shrink-0 font-mono">-{removed}</span>}
         {(running || failed) && (
-          <span className={`text-xs shrink-0 font-mono ${failed ? 'text-rose-400' : 'text-amber-400'}`}>
+          <span className={`text-xs shrink-0 font-mono ${failed ? 'text-danger' : 'text-amber-400'}`}>
             {tool.status}
           </span>
         )}
-        <span className="ml-auto shrink-0 text-zinc-500 pl-1">
+        <span className="ml-auto shrink-0 text-fg-subtle pl-1">
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </span>
       </div>
 
       {open && (
-        <div className="ml-5 mr-1.5 mb-1 rounded-md border border-[#2a2a30] bg-[#0e0e10] overflow-hidden">
+        <div className="ml-5 mr-1.5 mb-1 rounded-md border border-line bg-sunken overflow-hidden">
           {failed && tool.output && (
-            <div className="px-3 py-1.5 text-xs font-mono text-rose-400 border-b border-[#2a2a30] whitespace-pre-wrap break-words">
+            <div className="px-3 py-1.5 text-xs font-mono text-danger border-b border-line whitespace-pre-wrap break-words">
               {tool.output}
             </div>
           )}
           {lines.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-zinc-600 italic">（沒有可顯示的差異）</div>
+            <div className="px-3 py-2 text-xs text-fg-subtle italic">（沒有可顯示的差異）</div>
           ) : (
             <div className="max-h-[420px] overflow-auto">
               <table className="w-full border-collapse text-xs leading-[1.55] font-mono">
                 <tbody>
                   {lines.map((l, i) => (
                     <tr key={i} className={lineStyle[l.kind]}>
-                      <td className="select-none text-right pl-2 pr-2 text-zinc-600 align-top w-[1%] whitespace-nowrap">
+                      <td className="select-none text-right pl-2 pr-2 text-fg-subtle align-top w-[1%] whitespace-nowrap">
                         {l.lineNo}
                       </td>
                       <td className="select-none pr-1 align-top w-[1%]">{lineSign[l.kind]}</td>

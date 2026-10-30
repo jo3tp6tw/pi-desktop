@@ -162,11 +162,11 @@ export const SshModal: React.FC<SshModalProps> = ({
       onMouseDown={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-xl border border-[#2e2e34] bg-[#18181b] text-zinc-200 shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
+        className="w-full max-w-2xl rounded-xl border border-line-strong bg-surface text-zinc-200 shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* 頂部標題列 */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#27272a] bg-[#141417]">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-surface-2">
           <div className="flex items-center space-x-2.5">
             <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
               <Server size={18} />
@@ -202,12 +202,12 @@ export const SshModal: React.FC<SshModalProps> = ({
                     className={`px-2.5 py-1 rounded-md text-xs font-mono border transition flex items-center gap-1.5 ${
                       host === h.host
                         ? 'bg-cyan-500/15 border-cyan-500/50 text-cyan-200'
-                        : 'bg-[#121214] border-[#2e2e34] text-zinc-300 hover:border-zinc-600'
+                        : 'bg-canvas border-line-strong text-zinc-300 hover:border-zinc-600'
                     }`}
                   >
                     <Server size={11} className="text-cyan-400" />
                     <span>{h.host}</span>
-                    {h.port && h.port !== 22 && <span className="text-zinc-500">:{h.port}</span>}
+                    {h.port && h.port !== 22 && <span className="text-fg-subtle">:{h.port}</span>}
                   </button>
                 ))}
               </div>
@@ -215,7 +215,7 @@ export const SshModal: React.FC<SshModalProps> = ({
           )}
 
           {/* SSH 連線設定表單 */}
-          <div className="rounded-lg border border-[#27272a] bg-[#121214] p-4 space-y-3">
+          <div className="rounded-lg border border-line bg-canvas p-4 space-y-3">
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-9">
                 <label className="block text-xs font-medium text-zinc-400 mb-1">
@@ -229,7 +229,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                     if (e.key === 'Enter') handleBrowse(pathInput);
                   }}
                   placeholder="例如：ubuntu@192.168.1.50 或 my-linux-server"
-                  className="w-full rounded-md bg-[#18181b] border border-[#323238] px-3 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
+                  className="w-full rounded-md bg-surface border border-line-strong px-3 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
                 />
               </div>
               <div className="col-span-3">
@@ -239,7 +239,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
                   placeholder="22"
-                  className="w-full rounded-md bg-[#18181b] border border-[#323238] px-3 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
+                  className="w-full rounded-md bg-surface border border-line-strong px-3 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
                 />
               </div>
             </div>
@@ -247,7 +247,7 @@ export const SshModal: React.FC<SshModalProps> = ({
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-zinc-400 mb-1">
-                  密碼 <span className="text-zinc-500 font-normal">（選填：若已設好 SSH Key 免密登入請留空；有填則透過 SSH_ASKPASS 自動登入）</span>
+                  密碼 <span className="text-fg-subtle font-normal">（選填：若已設好 SSH Key 免密登入請留空；有填則透過 SSH_ASKPASS 自動登入）</span>
                 </label>
                 <div className="relative">
                   <input
@@ -258,12 +258,12 @@ export const SshModal: React.FC<SshModalProps> = ({
                       if (e.key === 'Enter') handleBrowse(pathInput);
                     }}
                     placeholder="留空代表使用 SSH Key 免密登入"
-                    className="w-full rounded-md bg-[#18181b] border border-[#323238] pl-3 pr-9 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
+                    className="w-full rounded-md bg-surface border border-line-strong pl-3 pr-9 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-zinc-300"
                     title={showPassword ? '隱藏密碼' : '顯示密碼'}
                   >
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -293,8 +293,8 @@ export const SshModal: React.FC<SshModalProps> = ({
 
           {/* 錯誤提示 */}
           {error && (
-            <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3.5 py-2.5 text-xs text-red-300 flex items-start gap-2">
-              <AlertCircle size={15} className="text-red-400 shrink-0 mt-0.5" />
+            <div className="rounded-lg border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-xs text-danger flex items-start gap-2">
+              <AlertCircle size={15} className="text-danger shrink-0 mt-0.5" />
               <div className="break-all leading-relaxed">{error}</div>
             </div>
           )}
@@ -324,7 +324,7 @@ export const SshModal: React.FC<SshModalProps> = ({
               </div>
 
               {/* 分頁切換：瀏覽遠端資料夾 vs 遠端既有 Pi 專案 */}
-              <div className="flex items-center justify-between border-b border-[#27272a]">
+              <div className="flex items-center justify-between border-b border-line">
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setActiveTab('browse')}
@@ -354,9 +354,9 @@ export const SshModal: React.FC<SshModalProps> = ({
               </div>
 
               {activeTab === 'browse' ? (
-                <div className="rounded-lg border border-[#27272a] bg-[#121214] overflow-hidden">
+                <div className="rounded-lg border border-line bg-canvas overflow-hidden">
                   {/* 路徑導覽列 */}
-                  <div className="p-2 border-b border-[#27272a] bg-[#151518] flex items-center gap-1.5">
+                  <div className="p-2 border-b border-line bg-surface-2 flex items-center gap-1.5">
                     <button
                       onClick={() => browseData.parentPath && handleBrowse(browseData.parentPath)}
                       disabled={!browseData.parentPath || connecting}
@@ -381,7 +381,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleBrowse(pathInput);
                       }}
-                      className="flex-1 rounded bg-[#18181b] border border-[#2e2e34] px-2.5 py-1 text-xs font-mono text-zinc-100 outline-none focus:border-cyan-500"
+                      className="flex-1 rounded bg-surface border border-line-strong px-2.5 py-1 text-xs font-mono text-zinc-100 outline-none focus:border-cyan-500"
                       placeholder="/home/user/..."
                     />
 
@@ -406,7 +406,7 @@ export const SshModal: React.FC<SshModalProps> = ({
 
                   {/* 新增資料夾輸入列 */}
                   {isCreatingFolder && (
-                    <div className="px-3 py-2 bg-zinc-900/90 border-b border-[#27272a] flex items-center gap-2">
+                    <div className="px-3 py-2 bg-zinc-900/90 border-b border-line flex items-center gap-2">
                       <FolderPlus size={14} className="text-cyan-400 shrink-0" />
                       <input
                         autoFocus
@@ -418,7 +418,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                           if (e.key === 'Escape') setIsCreatingFolder(false);
                         }}
                         placeholder="輸入新資料夾名稱..."
-                        className="flex-1 rounded bg-[#121214] border border-[#323238] px-2.5 py-1 text-xs text-zinc-100 font-mono outline-none focus:border-cyan-500"
+                        className="flex-1 rounded bg-canvas border border-line-strong px-2.5 py-1 text-xs text-zinc-100 font-mono outline-none focus:border-cyan-500"
                       />
                       <button
                         onClick={handleCreateFolder}
@@ -437,19 +437,19 @@ export const SshModal: React.FC<SshModalProps> = ({
                   )}
 
                   {/* 子目錄列表 */}
-                  <div className="max-h-56 overflow-y-auto divide-y divide-[#1e1e22]">
+                  <div className="max-h-56 overflow-y-auto divide-y divide-line">
                     {browseData.parentPath && (
                       <div
                         onClick={() => handleBrowse(browseData.parentPath!)}
                         className="px-3 py-2 flex items-center gap-2.5 text-xs text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200 cursor-pointer transition"
                       >
-                        <CornerLeftUp size={14} className="text-zinc-500" />
+                        <CornerLeftUp size={14} className="text-fg-subtle" />
                         <span className="font-mono">.. (返回上一層)</span>
                       </div>
                     )}
 
                     {(browseData.directories || []).length === 0 ? (
-                      <div className="py-8 text-center text-xs text-zinc-500">
+                      <div className="py-8 text-center text-xs text-fg-subtle">
                         此目錄下沒有其他子資料夾（可直接點選下方按鈕開啟目前目錄）
                       </div>
                     ) : (
@@ -478,7 +478,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                   </div>
 
                   {/* 底部確認選擇目前路徑 */}
-                  <div className="px-3.5 py-2.5 bg-[#151518] border-t border-[#27272a] flex items-center justify-between gap-3">
+                  <div className="px-3.5 py-2.5 bg-surface-2 border-t border-line flex items-center justify-between gap-3">
                     <div className="text-xs text-zinc-400 truncate">
                       目前目錄：<span className="font-mono text-zinc-100">{browseData.currentPath}</span>
                     </div>
@@ -493,9 +493,9 @@ export const SshModal: React.FC<SshModalProps> = ({
                 </div>
               ) : (
                 /* 遠端既有 Pi 專案清單 */
-                <div className="rounded-lg border border-[#27272a] bg-[#121214] overflow-hidden max-h-72 overflow-y-auto divide-y divide-[#1e1e22]">
+                <div className="rounded-lg border border-line bg-canvas overflow-hidden max-h-72 overflow-y-auto divide-y divide-line">
                   {!browseData.discoveredProjects || browseData.discoveredProjects.length === 0 ? (
-                    <div className="py-10 text-center text-xs text-zinc-500">
+                    <div className="py-10 text-center text-xs text-fg-subtle">
                       這台遠端主機的 <code className="font-mono">~/.pi/agent/sessions</code> 尚無歷史對話紀錄，請切換至「瀏覽遠端資料夾」選擇專案目錄。
                     </div>
                   ) : (
@@ -512,7 +512,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                               {dp.sessionCount} 個對話
                             </span>
                           </div>
-                          <div className="text-xs font-mono text-zinc-500 truncate mt-0.5">
+                          <div className="text-xs font-mono text-fg-subtle truncate mt-0.5">
                             {dp.path}
                           </div>
                         </div>

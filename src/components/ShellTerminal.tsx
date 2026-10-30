@@ -332,9 +332,9 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
   }, []);
 
   return (
-    <div className="relative h-full flex flex-col bg-[#101012]">
+    <div className="relative h-full flex flex-col bg-sunken">
       {/* 工具列：分頁 + 新增 + 清除 */}
-      <div className="h-10 px-1.5 border-b border-[#27272a] flex items-center gap-1 text-xs text-zinc-400 shrink-0">
+      <div className="h-10 px-1.5 border-b border-line flex items-center gap-1 text-xs text-zinc-400 shrink-0">
         {/* 分頁像瀏覽器一樣平均分配寬度：分頁越多每個越窄，縮到最小寬度後改為左右捲動 */}
         <div
           ref={tabStripRef}
@@ -396,7 +396,7 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
             <ChevronDown size={12} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-20 min-w-[190px] rounded-md border border-[#2f2f35] bg-[#1c1c20] py-1 shadow-xl">
+            <div className="absolute right-0 top-full mt-1 z-20 min-w-[190px] rounded-md border border-line-strong bg-overlay py-1 shadow-xl">
               {ssh && (
                 <>
                   <button
@@ -406,11 +406,11 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
                     <Server size={12} className="text-cyan-400 shrink-0" />
                     <span className="truncate">SSH: {ssh.host}</span>
                   </button>
-                  <div className="my-1 border-t border-[#2f2f35]" />
+                  <div className="my-1 border-t border-line-strong" />
                 </>
               )}
               {shells.length === 0 && (
-                <div className="px-3 py-1.5 text-zinc-500">找不到可用的本機 Shell</div>
+                <div className="px-3 py-1.5 text-fg-subtle">找不到可用的本機 Shell</div>
               )}
               {shells.map((s) => (
                 <button
@@ -450,7 +450,7 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
         ))}
 
         {tabs.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center gap-3 text-zinc-600">
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-fg-subtle">
             <TerminalIcon size={26} className="opacity-40" />
             <div className="text-sm">沒有開啟的終端機</div>
             <button

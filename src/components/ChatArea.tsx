@@ -86,7 +86,7 @@ const IconTipButton: React.FC<IconTipButtonProps> = ({
   onClick,
   disabled = false,
   active = false,
-  activeClassName = 'text-indigo-400 bg-indigo-500/15 border-indigo-500/30',
+  activeClassName = 'text-primary bg-primary/15 border-primary/30',
   danger = false,
   className = '',
 }) => {
@@ -99,7 +99,7 @@ const IconTipButton: React.FC<IconTipButtonProps> = ({
         aria-label={tooltip}
         className={`p-1.5 rounded-md border transition flex items-center justify-center disabled:opacity-35 disabled:pointer-events-none ${
           danger
-            ? 'border-transparent text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20'
+            ? 'border-transparent text-zinc-400 hover:text-danger hover:bg-danger/10 hover:border-danger/20'
             : active
               ? activeClassName
               : 'border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/90 hover:border-zinc-700/60'
@@ -219,14 +219,14 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
                   }
                 }}
                 title={filePathArg}
-                className="truncate text-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer text-left"
+                className="truncate text-fg-subtle hover:text-zinc-200 transition-colors cursor-pointer text-left"
               >
                 {summary}
               </span>
               <span className="flex-1 min-w-0" />
             </>
           ) : (
-            <span className="flex-1 min-w-0 truncate text-zinc-500 text-left" title={summary}>
+            <span className="flex-1 min-w-0 truncate text-fg-subtle text-left" title={summary}>
               {summary}
             </span>
           )
@@ -236,7 +236,7 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
         <span
           className={`text-xs shrink-0 font-mono ${
             tool.status === 'failed'
-              ? 'text-rose-400'
+              ? 'text-danger'
               : running
                 ? 'text-amber-400'
                 : 'text-emerald-400/80'
@@ -244,7 +244,7 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
         >
           {tool.status}
         </span>
-        <span className="ml-auto shrink-0 text-zinc-500 pl-1">
+        <span className="ml-auto shrink-0 text-fg-subtle pl-1">
           {state === 0 ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
         </span>
       </div>
@@ -261,13 +261,13 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
 
       {/* 第二段展開：輸出 */}
       {state === 2 && (
-        <div className="ml-5 mr-1.5 mb-1 border-l border-[#2a2a30] pl-3 max-w-full">
+        <div className="ml-5 mr-1.5 mb-1 border-l border-line pl-3 max-w-full">
           {output ? (
             <pre className="max-h-[320px] overflow-auto text-xs leading-[1.55] font-mono text-zinc-400 whitespace-pre-wrap break-words">
               {output}
             </pre>
           ) : (
-            <div className="text-xs text-zinc-600 italic">
+            <div className="text-xs text-fg-subtle italic">
               {running ? '等待輸出…' : '（沒有輸出）'}
             </div>
           )}
@@ -392,7 +392,7 @@ const MessageItem = React.memo<MessageItemProps>(({
       } ${message.omitted ? 'opacity-50' : ''}`}
     >
       {!isUser && (
-        <div className="w-7 h-7 rounded-lg bg-indigo-900/60 border border-indigo-700/50 flex items-center justify-center shrink-0 mt-0.5 text-indigo-300 shadow-sm">
+        <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5 text-primary shadow-sm">
           <Bot size={16} />
         </div>
       )}
@@ -408,7 +408,7 @@ const MessageItem = React.memo<MessageItemProps>(({
 
         {/* 使用者訊息原地編輯模式 */}
         {isUser && isEditing ? (
-          <div className="w-full min-w-[300px] sm:min-w-[440px] rounded-xl bg-zinc-900 border border-indigo-500/60 p-3 shadow-lg space-y-2">
+          <div className="w-full min-w-[300px] sm:min-w-[440px] rounded-xl bg-zinc-900 border border-primary/60 p-3 shadow-lg space-y-2">
             <textarea
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
@@ -423,7 +423,7 @@ const MessageItem = React.memo<MessageItemProps>(({
               }}
               rows={Math.min(8, Math.max(2, editText.split('\n').length))}
               autoFocus
-              className="w-full bg-zinc-950/70 border border-zinc-800 rounded-lg p-2.5 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500/60 resize-y font-sans leading-relaxed"
+              className="w-full bg-zinc-950/70 border border-zinc-800 rounded-lg p-2.5 text-sm text-zinc-100 focus:outline-none focus:border-primary/60 resize-y font-sans leading-relaxed"
             />
             <div className="flex items-center justify-end space-x-1">
               <IconTipButton
@@ -439,7 +439,7 @@ const MessageItem = React.memo<MessageItemProps>(({
                 tooltip="建立新分支並重新發送 (Enter)"
                 disabled={!editText.trim() || isLoading}
                 active
-                activeClassName="text-white bg-indigo-600 hover:bg-indigo-500 border-indigo-500/80"
+                activeClassName="text-white bg-primary-solid hover:brightness-110 border-primary/80"
                 onClick={(e) => handleConfirmEdit(e)}
               />
             </div>
@@ -465,11 +465,11 @@ const MessageItem = React.memo<MessageItemProps>(({
                     <Sparkles size={13} className="text-amber-400 shrink-0" />
                     <span className="shrink-0 text-amber-400 font-semibold">Thinking</span>
                     {!isOpen && preview && (
-                      <span className="flex-1 min-w-0 truncate text-zinc-500 text-left" title={preview}>
+                      <span className="flex-1 min-w-0 truncate text-fg-subtle text-left" title={preview}>
                         {preview}
                       </span>
                     )}
-                    <span className="ml-auto shrink-0 text-zinc-500 pl-1">
+                    <span className="ml-auto shrink-0 text-fg-subtle pl-1">
                       {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                     </span>
                   </button>
@@ -554,7 +554,7 @@ const MessageItem = React.memo<MessageItemProps>(({
               }}
               placeholder="輸入書籤名稱..."
               autoFocus
-              className="bg-zinc-950/80 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500/60 w-40"
+              className="bg-zinc-950/80 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-100 placeholder:text-fg-subtle focus:outline-none focus:border-amber-500/60 w-40"
             />
             <IconTipButton
               icon={<Check size={13} />}
@@ -722,16 +722,16 @@ const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop
   };
 
   return (
-    <div className="p-3 border-t border-[#27272a] bg-[#141416]">
+    <div className="p-3 border-t border-line bg-surface-2">
       <div className="max-w-4xl mx-auto">
-        <div className="relative rounded-xl border border-zinc-700/60 bg-zinc-900/90 focus-within:border-indigo-500/70 focus-within:ring-1 focus-within:ring-indigo-500/30 transition shadow-lg">
+        <div className="relative rounded-xl border border-zinc-700/60 bg-zinc-900/90 focus-within:border-primary/70 focus-within:ring-1 focus-within:ring-primary/30 transition shadow-lg">
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="輸入問題或指令給 Pi Agent (Shift+Enter 換行，Enter 送出)..."
             rows={3}
-            className="w-full bg-transparent p-3 pb-11 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none font-sans"
+            className="w-full bg-transparent p-3 pb-11 text-sm text-zinc-100 placeholder:text-fg-subtle focus:outline-none resize-none font-sans"
           />
 
           {toolbar && <div className="absolute bottom-2 left-2">{toolbar}</div>}
@@ -741,7 +741,7 @@ const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop
             {isLoading ? (
               <button
                 onClick={onStop}
-                className="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-sm font-medium flex items-center space-x-1.5 transition shadow"
+                className="px-3 py-1.5 rounded-lg bg-danger-solid/80 hover:bg-danger-solid text-white text-sm font-medium flex items-center space-x-1.5 transition shadow"
               >
                 <Square size={12} fill="white" />
                 <span>停止</span>
@@ -750,7 +750,7 @@ const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop
               <button
                 onClick={submit}
                 disabled={!inputText.trim()}
-                className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white transition shadow"
+                className="p-1.5 rounded-lg bg-primary-solid hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100 text-white transition shadow"
               >
                 <Send size={15} />
               </button>
@@ -832,9 +832,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 min-w-0 h-full flex flex-col bg-[#121214] text-zinc-100 overflow-hidden">
+    <div className="flex-1 min-w-0 h-full flex flex-col bg-canvas text-zinc-100 overflow-hidden">
       {/* 頂部會話導航列 */}
-      <header className="h-14 border-b border-[#27272a] px-4 flex items-center justify-between bg-[#141416] select-none">
+      <header className="h-14 border-b border-line px-4 flex items-center justify-between bg-surface-2 select-none">
         <div className="flex items-center space-x-2 min-w-0">
           {/* 執行環境標籤：本機或 SSH 主機（模型設定也依此環境而定） */}
           {envLabel ? (
@@ -855,7 +855,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </span>
           )}
           <div
-            className="flex items-center text-xs text-zinc-500 font-mono truncate max-w-md select-text"
+            className="flex items-center text-xs text-fg-subtle font-mono truncate max-w-md select-text"
             title={projectPath || projectName}
           >
             {projectPath || projectName}
@@ -880,11 +880,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         {/* 空狀態：引導使用者從左側開啟對話 */}
         {messages.length === 0 && !isLoading && (
           <div className="h-full flex flex-col items-center justify-center text-center select-none">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-900/40 border border-indigo-700/40 flex items-center justify-center text-indigo-300 mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary mb-4">
               <MessageSquare size={22} />
             </div>
             <h2 className="text-base font-medium text-zinc-200 mb-1.5">選擇一個對話開始</h2>
-            <p className="text-sm text-zinc-500 max-w-xs leading-relaxed">
+            <p className="text-sm text-fg-subtle max-w-xs leading-relaxed">
               從左側清單開啟歷史對話，或直接在下方輸入訊息來開始全新對話。
             </p>
           </div>

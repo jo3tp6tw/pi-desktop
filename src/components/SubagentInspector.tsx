@@ -40,27 +40,27 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#121214] overflow-hidden select-text">
+    <div className="h-full flex flex-col bg-canvas overflow-hidden select-text">
       {/* 頂部標題 */}
-      <div className="h-10 px-2 bg-[#18181b] border-b border-[#27272a] flex items-center justify-between text-sm text-zinc-400 select-none">
+      <div className="h-10 px-2 bg-surface border-b border-line flex items-center justify-between text-sm text-zinc-400 select-none">
         <span className="font-mono text-zinc-300 font-medium">Subagents Inspector</span>
-        <span className="text-xs text-zinc-500">
+        <span className="text-xs text-fg-subtle">
           {subagents.length} Agent{subagents.length > 1 ? 's' : ''} Active
         </span>
       </div>
 
       {subagents.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-5 text-center text-zinc-500 text-sm">
+        <div className="flex-1 flex flex-col items-center justify-center p-5 text-center text-fg-subtle text-sm">
           <Bot size={28} className="mb-2 opacity-40 text-zinc-400" />
           <p>目前尚未指派 Subagent</p>
-          <p className="mt-1 text-xs text-zinc-600">
+          <p className="mt-1 text-xs text-fg-subtle">
             當主 Agent 呼叫 scout、planner 或 worker 時，此處會顯示獨立執行紀錄。
           </p>
         </div>
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Subagent 水平切換標籤 */}
-          <div className="flex items-center space-x-1 p-2 bg-[#151518] border-b border-zinc-800/80 overflow-x-auto select-none">
+          <div className="flex items-center space-x-1 p-2 bg-surface-2 border-b border-zinc-800/80 overflow-x-auto select-none">
             {subagents.map((agent) => {
               const isSelected = agent.id === (currentSubagent?.id);
               return (
@@ -112,7 +112,7 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
                       <div key={idx} className="whitespace-pre-wrap">{log}</div>
                     ))
                   ) : (
-                    <span className="text-zinc-600">// 無獨立終端機輸出</span>
+                    <span className="text-fg-subtle">// 無獨立終端機輸出</span>
                   )}
                 </div>
               </div>

@@ -200,7 +200,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-[#18181b] border border-zinc-700/80 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="bg-surface border border-zinc-700/80 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         {/* 頂部標題 */}
         <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/60">
           <div className="flex items-center space-x-2.5">
@@ -214,7 +214,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                 <ArrowLeft size={16} />
               </button>
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-indigo-950/70 border border-indigo-700/50 flex items-center justify-center text-indigo-400">
+              <div className="w-8 h-8 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center text-primary">
                 <Cpu size={17} />
               </div>
             )}
@@ -242,7 +242,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
             className={`px-6 py-2.5 text-xs flex items-start space-x-2 border-b ${
               status.type === 'success'
                 ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
-                : 'bg-rose-950/60 border-rose-800/60 text-rose-300'
+                : 'bg-danger/10 border-danger/30 text-danger'
             }`}
           >
             {status.type === 'success' ? <CheckCircle2 size={14} className="shrink-0 mt-px" /> : <AlertCircle size={14} className="shrink-0 mt-px" />}
@@ -286,11 +286,11 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                   >
                     {isRemote ? <Server size={12} className="text-cyan-400" /> : <Monitor size={12} />}
                     <span className="truncate max-w-[140px]">{env.label}</span>
-                    <span className="text-[10px] font-normal text-zinc-500 truncate max-w-[120px]">
+                    <span className="text-[10px] font-normal text-fg-subtle truncate max-w-[120px]">
                       · {def ? def.name : '未指定'}
                     </span>
                     {catalogs[env.key]?.version && (
-                      <span className="text-[10px] font-mono font-normal text-zinc-500">pi v{catalogs[env.key].version}</span>
+                      <span className="text-[10px] font-mono font-normal text-fg-subtle">pi v{catalogs[env.key].version}</span>
                     )}
                     {env.key === activeEnv.key && (
                       <span className="text-[10px] px-1 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800/60">
@@ -300,7 +300,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                   </button>
                 );
               })}
-              {busy && <RefreshCw size={12} className="animate-spin text-zinc-500 shrink-0 ml-1" />}
+              {busy && <RefreshCw size={12} className="animate-spin text-fg-subtle shrink-0 ml-1" />}
             </div>
 
             {/* 設定檔列表 */}
@@ -331,7 +331,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                 return (
                   <div
                     key={p.id}
-                    className={`px-6 py-3 border-b border-zinc-800/80 flex items-center gap-3 ${enabled ? 'bg-indigo-950/20' : ''}`}
+                    className={`px-6 py-3 border-b border-zinc-800/80 flex items-center gap-3 ${enabled ? 'bg-primary/5' : ''}`}
                   >
                     <input
                       type="checkbox"
@@ -339,7 +339,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                       disabled={busy}
                       onChange={() => toggleEnabled(p.id)}
                       title={enabled ? `在「${envLabel(envKey)}」停用` : `在「${envLabel(envKey)}」啟用`}
-                      className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      className="rounded border-zinc-700 bg-zinc-900 accent-primary-solid focus:ring-0 focus:ring-offset-0 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -350,7 +350,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-zinc-500 font-mono truncate">
+                      <div className="text-xs text-fg-subtle font-mono truncate">
                         {p.kind === 'openai-compatible' ? 'OpenAI Compatible' : providerLabel(p.provider)} · {p.modelId}
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -397,7 +397,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                         <button
                           onClick={() => deleteProfile(p.id)}
                           disabled={busy}
-                          className="px-2 py-1 rounded-md text-[11px] bg-rose-900/60 text-rose-200 border border-rose-700/60 hover:bg-rose-800/60 transition"
+                          className="px-2 py-1 rounded-md text-[11px] bg-danger-solid text-white border border-danger/40 hover:brightness-110 transition"
                         >
                           確認刪除
                         </button>
@@ -406,7 +406,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                           onClick={() => setConfirmDeleteId(p.id)}
                           disabled={busy}
                           title="刪除"
-                          className="p-1.5 rounded-md text-zinc-400 hover:text-rose-300 hover:bg-zinc-800 transition"
+                          className="p-1.5 rounded-md text-zinc-400 hover:text-danger hover:bg-zinc-800 transition"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -429,7 +429,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
               </div>
             </div>
 
-            <div className="px-6 py-2.5 border-t border-zinc-800 bg-zinc-900/70 text-[11px] text-zinc-500">
+            <div className="px-6 py-2.5 border-t border-zinc-800 bg-zinc-900/70 text-[11px] text-fg-subtle">
               勾選即在「{envLabel(envKey)}」啟用；變更會立即寫入該環境的 ~/.pi/agent，並重新啟動其對話以套用。
             </div>
           </>
@@ -452,7 +452,7 @@ interface ProfileEditorProps {
 }
 
 const inputCls =
-  'w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 transition';
+  'w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-primary transition';
 
 const numOrUndef = (v: string) => (v.trim() === '' || Number.isNaN(Number(v)) ? undefined : Number(v));
 
@@ -519,7 +519,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
   };
 
   const Dot = ({ on }: { on: boolean }) =>
-    on ? <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 ml-1 align-middle" title="已修改" /> : null;
+    on ? <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary ml-1 align-middle" title="已修改" /> : null;
 
   return (
     <>
@@ -545,7 +545,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
                 onClick={() => set({ kind: k, modelId: '', thinkingLevel: undefined })}
                 className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                   p.kind === k
-                    ? 'bg-indigo-600 text-white border-indigo-500'
+                    ? 'bg-primary-solid text-white border-primary'
                     : 'bg-zinc-900/80 text-zinc-400 border-zinc-700/60 hover:bg-zinc-800 hover:text-zinc-200'
                 }`}
               >
@@ -625,12 +625,12 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="absolute right-2.5 p-1 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-2.5 p-1 text-fg-subtle hover:text-zinc-300"
               >
                 {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
             </div>
-            <p className="text-[11px] text-zinc-500 mt-1">也可填 $環境變數名稱，例如 $DEEPSEEK_API_KEY，由執行 pi 的環境提供</p>
+            <p className="text-[11px] text-fg-subtle mt-1">也可填 $環境變數名稱，例如 $DEEPSEEK_API_KEY，由執行 pi 的環境提供</p>
           </div>
         </section>
 
@@ -656,7 +656,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
                   type="checkbox"
                   checked={Boolean(p.reasoning)}
                   onChange={(e) => set({ reasoning: e.target.checked, thinkingLevel: undefined })}
-                  className="rounded border-zinc-700 bg-zinc-900 text-indigo-600 focus:ring-0 focus:ring-offset-0"
+                  className="rounded border-zinc-700 bg-zinc-900 accent-primary-solid focus:ring-0 focus:ring-offset-0"
                 />
                 模型支援推理（思考）
               </label>
@@ -702,7 +702,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
           <div>
             <div className="text-xs text-zinc-400 mb-1.5 font-medium">
               思考等級<Dot on={p.thinkingLevel !== undefined} />
-              <span className="text-zinc-500 font-normal ml-2">此模型支援：{levels.join(' / ')}</span>
+              <span className="text-fg-subtle font-normal ml-2">此模型支援：{levels.join(' / ')}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               <LevelButton label="預設" selected={!p.thinkingLevel} onClick={() => set({ thinkingLevel: undefined })} />
@@ -744,7 +744,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
             </div>
           ) : (
             base && (
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[11px] text-fg-subtle">
                 此模型使用 {base.api} 格式，不支援 Temperature / Top P 等採樣參數。
               </p>
             )
@@ -753,7 +753,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
       </div>
 
       <div className="px-6 py-3.5 border-t border-zinc-800 bg-zinc-900/70 flex items-center justify-between gap-3">
-        <span className="text-xs text-rose-300">{error}</span>
+        <span className="text-xs text-danger">{error}</span>
         <div className="flex items-center space-x-2">
           <button
             onClick={onCancel}
@@ -765,7 +765,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
           <button
             onClick={submit}
             disabled={busy}
-            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-medium flex items-center space-x-1.5 transition shadow"
+            className="px-4 py-1.5 rounded-lg bg-primary-solid hover:brightness-110 disabled:opacity-50 text-white text-xs font-medium flex items-center space-x-1.5 transition shadow"
           >
             {busy ? <RefreshCw size={13} className="animate-spin" /> : <Save size={13} />}
             <span>{busy ? '儲存中...' : '儲存'}</span>
@@ -782,7 +782,7 @@ const LevelButton: React.FC<{ label: string; selected: boolean; onClick: () => v
     onClick={onClick}
     className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
       selected
-        ? 'bg-indigo-600 text-white border-indigo-500'
+        ? 'bg-primary-solid text-white border-primary'
         : 'bg-zinc-900/80 text-zinc-400 border-zinc-700/60 hover:bg-zinc-800 hover:text-zinc-200'
     }`}
   >

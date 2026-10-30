@@ -131,7 +131,8 @@ export const MonacoCodeEditor = forwardRef<MonacoCodeEditorHandle, MonacoCodeEdi
       colors: {
         'editor.background': '#121214',
         'editor.foreground': '#e4e4e7',
-        'editorLineNumber.foreground': '#52525b',
+        // 與 --fg-subtle 相同，行號在編輯器底色上需 ≥4.5:1
+        'editorLineNumber.foreground': '#909098',
         'editorLineNumber.activeForeground': '#a1a1aa',
         'editor.lineHighlightBackground': '#18181b',
         'editor.selectionBackground': '#3f3f4680',
@@ -199,7 +200,7 @@ export const MonacoCodeEditor = forwardRef<MonacoCodeEditorHandle, MonacoCodeEdi
         },
       }}
       loading={
-        <div className="h-full w-full flex items-center justify-center text-xs text-zinc-500 font-mono">
+        <div className="h-full w-full flex items-center justify-center text-xs text-fg-subtle font-mono">
           載入 Monaco 編輯器中...
         </div>
       }

@@ -1,3 +1,6 @@
+// 以 CSS 變數 (R G B) 定義顏色，保留 Tailwind 的透明度修飾 (例如 bg-primary/15)
+const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -16,27 +19,29 @@ export default {
         base: ['1.0625rem', { lineHeight: '1.55' }], // 17px（標題）
         lg: ['1.1875rem', { lineHeight: '1.55' }], // 19px
       },
+      // 語意色彩：實際色值定義在 src/index.css 的 :root CSS 變數，
+      // 元件只用角色名稱（canvas / fg-muted / primary…），不再直接寫色碼。
       colors: {
-        sidebar: {
-          bg: '#18181b', // 類似 Antigravity 的深灰色
-          hover: '#27272a',
-          active: '#3f3f46',
-          border: '#27272a',
-          text: '#a1a1aa',
-          textHover: '#f4f4f5',
+        canvas: token('canvas'),
+        surface: { DEFAULT: token('surface'), 2: token('surface-2') },
+        overlay: token('overlay'),
+        raised: token('raised'),
+        sunken: token('sunken'),
+        line: { DEFAULT: token('line'), strong: token('line-strong') },
+        fg: {
+          strong: token('fg-strong'),
+          DEFAULT: token('fg'),
+          muted: token('fg-muted'),
+          subtle: token('fg-subtle'),
+          disabled: token('fg-disabled'),
         },
-        chat: {
-          bg: '#121214',
-          bubbleUser: '#27272a',
-          bubbleAssistant: '#18181b',
-          border: '#27272a',
-        },
-        panel: {
-          bg: '#18181b',
-          header: '#1f1f23',
-          border: '#27272a',
-        }
-      }
+        primary: { DEFAULT: token('primary'), solid: token('primary-solid') },
+        danger: { DEFAULT: token('danger'), solid: token('danger-solid') },
+        success: token('success'),
+        warning: token('warning'),
+        remote: token('remote'),
+        link: token('link'),
+      },
     },
   },
   plugins: [],

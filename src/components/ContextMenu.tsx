@@ -57,24 +57,24 @@ const MenuPanel: React.FC<{
               }}
               className={`w-full flex items-center gap-3 px-3 py-[7px] text-sm transition-colors text-left ${
                 item.disabled
-                  ? 'text-zinc-600 cursor-default'
+                  ? 'text-fg-disabled cursor-default'
                   : item.danger
-                  ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
+                  ? 'text-danger hover:bg-danger/10 hover:text-danger'
                   : 'text-zinc-200 hover:bg-zinc-700/60'
               }`}
             >
-              <span className={`w-4 h-4 shrink-0 flex items-center justify-center ${item.danger ? 'text-red-400' : 'text-zinc-400'}`}>
+              <span className={`w-4 h-4 shrink-0 flex items-center justify-center ${item.danger ? 'text-danger' : 'text-zinc-400'}`}>
                 {item.icon}
               </span>
               <span className="flex-1 truncate">{item.label}</span>
-              {hasSub && <ChevronRight size={13} className="text-zinc-500 shrink-0" />}
+              {hasSub && <ChevronRight size={13} className="text-fg-subtle shrink-0" />}
             </button>
 
             {hasSub && openIdx === i && (
               <div
                 className={`absolute top-[-4px] ${
                   depth === 0 ? 'left-full ml-0.5' : 'right-full mr-0.5'
-                } min-w-[170px] rounded-lg border border-[#3f3f46] bg-[#1f1f23] shadow-2xl shadow-black/50 z-50`}
+                } min-w-[170px] rounded-lg border border-line-strong bg-overlay shadow-2xl shadow-black/50 z-50`}
               >
                 <MenuPanel items={item.submenu!} onClose={onClose} depth={depth + 1} />
               </div>
@@ -135,7 +135,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, items, onClose }
       <div
         ref={ref}
         style={{ left: pos.x, top: pos.y }}
-        className="fixed min-w-[190px] rounded-lg border border-[#3f3f46] bg-[#1f1f23] shadow-2xl shadow-black/50 text-zinc-200"
+        className="fixed min-w-[190px] rounded-lg border border-line-strong bg-overlay shadow-2xl shadow-black/50 text-zinc-200"
         onMouseDown={(e) => e.stopPropagation()}
         onContextMenu={(e) => e.preventDefault()}
       >

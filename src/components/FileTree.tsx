@@ -873,7 +873,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     };
 
     return (
-      <div className="h-10 px-1.5 bg-[#18181b] border-b border-[#27272a] flex items-center gap-1 text-sm text-zinc-400 shrink-0">
+      <div className="h-10 px-1.5 bg-surface border-b border-line flex items-center gap-1 text-sm text-zinc-400 shrink-0">
         {/* 上一層按鈕：在檔案內按回檔案樹，在檔案樹按回父目錄 */}
         <button
           onClick={handleGoUp}
@@ -882,7 +882,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           className={`p-1.5 rounded transition shrink-0 ${
             canGoUp
               ? 'hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100'
-              : 'text-zinc-600 cursor-not-allowed'
+              : 'text-fg-disabled cursor-not-allowed'
           }`}
         >
           <ArrowUp size={14} />
@@ -906,7 +906,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   setIsEditingPath(false);
                 }
               }}
-              className="w-full bg-[#121214] border border-zinc-600 rounded px-2 py-0.5 text-xs font-mono text-zinc-100 outline-none"
+              className="w-full bg-canvas border border-zinc-600 rounded px-2 py-0.5 text-xs font-mono text-zinc-100 outline-none"
               placeholder="輸入目錄路徑..."
             />
           ) : (
@@ -931,7 +931,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           className={`p-1.5 rounded transition shrink-0 ${
             !isAtWorkspaceRoot || isViewingFile
               ? 'hover:bg-zinc-800 text-amber-400/90 hover:text-amber-300'
-              : 'text-zinc-600 cursor-not-allowed'
+              : 'text-fg-disabled cursor-not-allowed'
           }`}
         >
           <Home size={13} />
@@ -944,7 +944,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           className={`p-1.5 rounded transition shrink-0 ${
             showHidden
               ? 'bg-zinc-800/90 text-amber-300 hover:bg-zinc-700'
-              : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+              : 'text-fg-subtle hover:bg-zinc-800 hover:text-zinc-300'
           }`}
         >
           {showHidden ? <Eye size={13} /> : <EyeOff size={13} />}
@@ -981,12 +981,12 @@ export const FileTree: React.FC<FileTreeProps> = ({
         (canToggleSvgCode && viewMode === 'code'));
 
     return (
-      <div className="h-full flex flex-col bg-[#121214] overflow-hidden select-none">
+      <div className="h-full flex flex-col bg-canvas overflow-hidden select-none">
         {/* 第一排：顯示該檔案路徑，按「↑ 上一層」直接回到該檔案所在目錄的檔案樹 */}
         {renderDirectoryHeader()}
 
         {/* 第二排：檔案資訊與工具按鈕列 */}
-        <div className="h-9 px-2.5 bg-[#151518] border-b border-[#27272a] flex items-center justify-between gap-1.5 text-xs shrink-0">
+        <div className="h-9 px-2.5 bg-surface-2 border-b border-line flex items-center justify-between gap-1.5 text-xs shrink-0">
           {/* 左側：檔名 + 未儲存標記 + 檔案大小 */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             {activeFile && (
@@ -1005,7 +1005,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   />
                 )}
                 {activeFile.size > 0 && (
-                  <span className="text-[11px] text-zinc-500 font-mono shrink-0">
+                  <span className="text-[11px] text-fg-subtle font-mono shrink-0">
                     ({formatBytes(activeFile.size)})
                   </span>
                 )}
@@ -1095,8 +1095,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   title="儲存檔案 (Ctrl+S)"
                   className={`p-1 rounded transition ${
                     isDirty
-                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm'
-                      : 'text-zinc-500 cursor-default'
+                      ? 'bg-primary-solid hover:brightness-110 text-white shadow-sm'
+                      : 'text-fg-disabled cursor-default'
                   }`}
                 >
                   {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
@@ -1152,15 +1152,15 @@ export const FileTree: React.FC<FileTreeProps> = ({
             </div>
           ) : fileError ? (
             <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
-              <AlertCircle size={28} className="text-red-400" />
+              <AlertCircle size={28} className="text-danger" />
               <div className="text-sm text-zinc-300 font-medium">無法開啟檔案</div>
-              <div className="text-xs text-zinc-500 font-mono break-all max-w-sm">{fileError}</div>
+              <div className="text-xs text-fg-subtle font-mono break-all max-w-sm">{fileError}</div>
             </div>
           ) : activeFile?.kind === 'binary' ? (
             <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
-              <File size={32} className="text-zinc-500" />
+              <File size={32} className="text-fg-subtle" />
               <div className="text-sm text-zinc-300 font-medium">二進位或大型媒體檔案</div>
-              <div className="text-xs text-zinc-500">
+              <div className="text-xs text-fg-subtle">
                 檔案大小：{formatBytes(activeFile.size)}。此格式無法直接以文字編輯器開啟。
               </div>
               {!ssh && (
@@ -1176,7 +1176,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           ) : activeFile?.kind === 'image' && viewMode === 'preview' ? (
             <div className="h-full flex flex-col overflow-hidden">
               {/* 圖片預覽控制列 */}
-              <div className="h-8 px-3 bg-[#151518] border-b border-[#27272a] flex items-center justify-between text-xs text-zinc-400 select-none">
+              <div className="h-8 px-3 bg-surface-2 border-b border-line flex items-center justify-between text-xs text-zinc-400 select-none">
                 <span className="font-mono text-[11px]">
                   {imageDimensions ? `${imageDimensions.w} × ${imageDimensions.h} px` : '圖片預覽'}
                 </span>
@@ -1236,13 +1236,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
               </div>
             </div>
           ) : canToggleMarkdown && viewMode === 'preview' ? (
-            <div className="h-full overflow-y-auto p-4 bg-[#121214]">
+            <div className="h-full overflow-y-auto p-4 bg-canvas">
               <Markdown>{editedContent}</Markdown>
             </div>
           ) : activeFile ? (
             <Suspense
               fallback={
-                <div className="h-full flex items-center justify-center gap-2 text-xs text-zinc-500 font-mono">
+                <div className="h-full flex items-center justify-center gap-2 text-xs text-fg-subtle font-mono">
                   <Loader2 size={14} className="animate-spin text-amber-400" />
                   <span>載入 Monaco Editor...</span>
                 </div>
@@ -1270,7 +1270,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
   // ============================================================================
   return (
     <div
-      className="h-full flex flex-col bg-[#121214] overflow-hidden select-none relative"
+      className="h-full flex flex-col bg-canvas overflow-hidden select-none relative"
       onKeyDown={handleTreeKeyDown}
     >
       {/* 頂部導覽列 */}
@@ -1278,7 +1278,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
       {/* 若正在新增檔案或資料夾，顯示頂端內嵌輸入列 */}
       {creatingItem && (
-        <div className="px-2 py-1.5 bg-[#18181b] border-b border-[#27272a] flex items-center gap-2 shrink-0">
+        <div className="px-2 py-1.5 bg-surface border-b border-line flex items-center gap-2 shrink-0">
           {creatingItem.isDirectory ? (
             <Folder size={14} className="text-amber-300 shrink-0" />
           ) : (
@@ -1294,7 +1294,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               else if (e.key === 'Escape') setCreatingItem(null);
             }}
             placeholder={creatingItem.isDirectory ? '輸入新資料夾名稱 (Enter 建立)…' : '輸入新檔案名稱 (Enter 建立)…'}
-            className="flex-1 bg-[#121214] border border-blue-500/70 rounded px-2 py-0.5 text-xs font-mono text-zinc-100 outline-none"
+            className="flex-1 bg-canvas border border-primary/70 rounded px-2 py-0.5 text-xs font-mono text-zinc-100 outline-none"
           />
         </div>
       )}
@@ -1307,7 +1307,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       >
         {dirError ? (
           <div className="p-4 text-center space-y-2">
-            <div className="text-xs text-red-400 font-mono break-all">{dirError}</div>
+            <div className="text-xs text-danger font-mono break-all">{dirError}</div>
             <button
               onClick={() => loadDirectory(currentWorkspace)}
               className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 transition"
@@ -1316,12 +1316,12 @@ export const FileTree: React.FC<FileTreeProps> = ({
             </button>
           </div>
         ) : dirLoading && items.length === 0 ? (
-          <div className="h-32 flex items-center justify-center gap-2 text-xs text-zinc-500 font-mono">
+          <div className="h-32 flex items-center justify-center gap-2 text-xs text-fg-subtle font-mono">
             <Loader2 size={14} className="animate-spin text-amber-400" />
             <span>正在讀取目錄...</span>
           </div>
         ) : treeData.length === 0 ? (
-          <div className="py-8 text-center text-xs text-zinc-500">
+          <div className="py-8 text-center text-xs text-fg-subtle">
             此目錄下沒有檔案（按右鍵可新增檔案或資料夾）
           </div>
         ) : (
@@ -1388,7 +1388,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   title={item.isParentLink ? `返回上一層目錄 (${item.path})\n（亦可將檔案拖曳至此移往上一層）` : item.path}
                   className={`mx-1.5 px-2 rounded flex items-center justify-between text-sm cursor-pointer transition ${
                     node.willReceiveDrop
-                      ? 'bg-blue-500/25 ring-1 ring-blue-400 text-white'
+                      ? 'bg-primary/25 ring-1 ring-primary text-white'
                       : node.isSelected
                         ? 'bg-zinc-700/70 text-zinc-100'
                         : 'hover:bg-zinc-800/60'
@@ -1402,7 +1402,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                         size={14}
                         className={`shrink-0 ${
                           node.willReceiveDrop
-                            ? 'text-blue-300'
+                            ? 'text-primary'
                             : isHiddenItem || item.isParentLink
                               ? 'text-amber-300/55'
                               : 'text-amber-300/90'
@@ -1432,7 +1432,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                           if (e.key === 'Enter') node.submit(e.currentTarget.value);
                           else if (e.key === 'Escape') node.reset();
                         }}
-                        className="flex-1 min-w-0 bg-[#121214] border border-blue-500 rounded px-1.5 py-0 text-xs font-mono text-zinc-100 outline-none"
+                        className="flex-1 min-w-0 bg-canvas border border-primary rounded px-1.5 py-0 text-xs font-mono text-zinc-100 outline-none"
                       />
                     ) : (
                       <span className={`truncate ${item.isParentLink ? 'font-mono text-zinc-400' : ''}`}>
@@ -1442,7 +1442,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   </div>
 
                   {!item.isDirectory && !node.isEditing && item.size !== undefined && (
-                    <span className="text-[11px] font-mono text-zinc-500 ml-2 shrink-0">
+                    <span className="text-[11px] font-mono text-fg-subtle ml-2 shrink-0">
                       {formatBytes(item.size)}
                     </span>
                   )}
@@ -1470,10 +1470,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
           onMouseDown={() => setDeleteTargets(null)}
         >
           <div
-            className="w-[400px] rounded-xl border border-[#3f3f46] bg-[#1f1f23] p-5 shadow-2xl"
+            className="w-[400px] rounded-xl border border-line-strong bg-overlay p-5 shadow-2xl"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-2">
               <AlertTriangle size={15} /> 確認刪除
             </h3>
             <p className="text-sm text-zinc-300 leading-relaxed">
@@ -1487,7 +1487,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 </>
               )}
               <br />
-              <span className="text-xs text-zinc-500">
+              <span className="text-xs text-fg-subtle">
                 {ssh
                   ? '注意：遠端 SSH 檔案刪除後無法從回收筒還原。'
                   : '本機檔案會優先移至系統資源回收筒。'}
@@ -1502,7 +1502,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               </button>
               <button
                 onClick={confirmDeleteItems}
-                className="px-3 py-1.5 rounded-md text-sm bg-red-600 hover:bg-red-500 text-white transition"
+                className="px-3 py-1.5 rounded-md text-sm bg-danger-solid hover:brightness-110 text-white transition"
               >
                 刪除
               </button>

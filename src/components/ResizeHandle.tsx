@@ -82,7 +82,7 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = ({
       onMouseDown={handleMouseDown}
       onDoubleClick={onReset}
       className={`group relative z-30 w-1 shrink-0 cursor-col-resize touch-none transition-colors ${
-        isDragging ? 'bg-blue-500/70' : 'bg-transparent hover:bg-blue-500/40'
+        isDragging ? 'bg-primary/70' : 'bg-transparent hover:bg-primary/40'
       }`}
     >
       {/* 加大可點擊範圍（左右各延伸 3px），但不影響視覺上的細線 */}

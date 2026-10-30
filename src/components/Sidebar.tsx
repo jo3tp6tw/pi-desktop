@@ -88,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       style={{ width }}
-      className="h-full shrink-0 bg-[#18181b] border-r border-[#27272a] flex flex-col justify-between select-none text-zinc-300 overflow-hidden"
+      className="h-full shrink-0 bg-surface border-r border-line flex flex-col justify-between select-none text-zinc-300 overflow-hidden"
       onContextMenu={(e) => {
         // 只有點在真正的空白處（非對話/專案列）才觸發
         if (e.target === e.currentTarget) {
@@ -198,7 +198,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             }`}
                           >
                             <span className="truncate pr-2">{session.title}</span>
-                            <span className="text-[12px] text-zinc-500 whitespace-nowrap group-hover:text-zinc-400">
+                            <span className="text-[12px] text-fg-subtle whitespace-nowrap group-hover:text-zinc-400">
                               {session.timeAgo}
                             </span>
                           </div>
@@ -215,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* 底部工作區狀態 & 核心管理 */}
-      <div className="p-3 border-t border-[#27272a] bg-zinc-900/60 text-[15px] flex items-center justify-between text-zinc-400">
+      <div className="p-3 border-t border-line bg-zinc-900/60 text-[15px] flex items-center justify-between text-zinc-400">
         <button
           onClick={onOpenCoreManager}
           title="點擊管理 Pi 核心與檢查更新"
@@ -231,7 +231,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="truncate font-mono text-[13px] font-medium text-zinc-200">
               Pi Core v{coreInfo?.version || '1.3.0'}
             </span>
-            <span className="text-[13px] text-zinc-500 font-mono">
+            <span className="text-[13px] text-fg-subtle font-mono">
               {coreInfo?.type === 'user' ? '已更新版' : coreInfo?.type === 'bundled' ? '內建封裝' : '系統全域'}
             </span>
           </div>
