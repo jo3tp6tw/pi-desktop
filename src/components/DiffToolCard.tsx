@@ -111,7 +111,7 @@ export const DiffToolCard: React.FC<{
           }
         }}
         title={open ? '收合' : '展開 diff'}
-        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
+        className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
       >
         <Icon size={13} className="text-sky-400 shrink-0" />
         <span className="shrink-0 font-mono text-sky-400 font-semibold">{tool.name}</span>

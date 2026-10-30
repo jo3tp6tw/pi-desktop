@@ -37,6 +37,70 @@
     --remote: 103 232 249; /* cyan-300 SSH 遠端環境 */
     --link: 96 165 250; /* blue-400 Markdown 連結 */
   }
+
+  /* 鍵盤焦點：所有可操作元素一致的靛色外框（滑鼠點擊不會出現） */
+  :focus-visible {
+    outline: 2px solid rgb(var(--primary));
+    outline-offset: 2px;
+  }
+}
+
+/* ============ 共用元件樣式 ============ */
+/* 只抽出重複出現的寫法；顏色等個別差異仍用 utility 覆寫 */
+@layer components {
+  /* 放在 overflow-hidden 容器裡的元素：焦點框改為內縮，避免被裁掉 */
+  .focus-ring-inset:focus-visible,
+  .focus-inset {
+    outline: 2px solid rgb(var(--primary));
+    outline-offset: -2px;
+  }
+
+  /* 工具列圖示按鈕：至少 24×24px；開關類按鈕以 aria-pressed 表示狀態 */
+  .icon-btn {
+    @apply inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-md p-1 text-fg-muted transition-colors hover:bg-raised hover:text-fg-strong;
+  }
+  .icon-btn:disabled {
+    @apply cursor-default bg-transparent text-fg-disabled;
+  }
+  .icon-btn[aria-pressed='true'] {
+    @apply bg-primary/15 text-primary;
+  }
+  .icon-btn[aria-pressed='true']:hover {
+    @apply bg-primary/25;
+  }
+
+  /* 對話框按鈕 */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply btn text-zinc-300 hover:bg-raised;
+  }
+  .btn-primary {
+    @apply btn bg-primary-solid text-white hover:brightness-110;
+  }
+  .btn-danger {
+    @apply btn bg-danger-solid text-white hover:brightness-110;
+  }
+
+  /* 文字輸入框：聚焦時邊框與外圈都換成主要色 */
+  .field {
+    @apply w-full rounded-md border border-line-strong bg-canvas px-3 py-2 text-sm text-fg-strong outline-none transition-colors placeholder:text-fg-subtle focus:border-primary focus:ring-1 focus:ring-primary/40;
+  }
+
+  /* 側欄、檔案樹的列；目前所在的項目以 aria-current / aria-selected 標示 */
+  .list-row {
+    @apply flex cursor-pointer items-center rounded-md px-2.5 py-1.5 text-sm text-fg-muted transition-colors hover:bg-raised/50 hover:text-zinc-200;
+  }
+  .list-row[aria-current='page'],
+  .list-row[aria-selected='true'] {
+    @apply bg-primary/15 font-medium text-fg-strong;
+  }
+
+  /* 三欄最上方的標題列：統一 40px 高 */
+  .panel-header {
+    @apply flex h-10 shrink-0 items-center gap-1 border-b border-line bg-surface-2 px-2;
+  }
 }
 
 /* 自訂捲軸樣式 */

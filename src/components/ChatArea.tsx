@@ -97,7 +97,7 @@ const IconTipButton: React.FC<IconTipButtonProps> = ({
         onClick={onClick}
         disabled={disabled}
         aria-label={tooltip}
-        className={`p-1.5 rounded-md border transition flex items-center justify-center disabled:opacity-35 disabled:pointer-events-none ${
+        className={`min-h-6 min-w-6 p-1.5 rounded-md border transition flex items-center justify-center disabled:opacity-35 disabled:pointer-events-none ${
           danger
             ? 'border-transparent text-zinc-400 hover:text-danger hover:bg-danger/10 hover:border-danger/20'
             : active
@@ -107,7 +107,7 @@ const IconTipButton: React.FC<IconTipButtonProps> = ({
       >
         {icon}
       </button>
-      <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-40">
+      <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 opacity-0 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100 transition-opacity duration-150 z-40">
         <div className="px-2 py-1 rounded-md bg-zinc-950/95 border border-zinc-700/80 text-2xs text-zinc-200 whitespace-nowrap shadow-xl">
           {tooltip}
         </div>
@@ -197,7 +197,7 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
           }
         }}
         title={state === 0 ? (summary ? `${summary} (點擊展開)` : '展開指令') : state === 1 ? '顯示輸出' : '收合'}
-        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
+        className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
       >
         <Terminal size={13} className="text-purple-400 shrink-0" />
         <span className="shrink-0 font-mono text-purple-400 font-semibold">{tool.name}</span>
@@ -423,7 +423,7 @@ const MessageItem = React.memo<MessageItemProps>(({
               }}
               rows={Math.min(8, Math.max(2, editText.split('\n').length))}
               autoFocus
-              className="w-full bg-zinc-950/70 border border-zinc-800 rounded-lg p-2.5 text-sm text-zinc-100 focus:outline-none focus:border-primary/60 resize-y font-sans leading-relaxed"
+              className="field rounded-lg bg-zinc-950/70 border-zinc-800 p-2.5 resize-y leading-relaxed"
             />
             <div className="flex items-center justify-end space-x-1">
               <IconTipButton
@@ -460,7 +460,7 @@ const MessageItem = React.memo<MessageItemProps>(({
                   <button
                     type="button"
                     onClick={() => toggleThinking(partKey)}
-                    className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors"
+                    className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors"
                   >
                     <Sparkles size={13} className="text-amber-400 shrink-0" />
                     <span className="shrink-0 text-amber-400 font-semibold">Thinking</span>
@@ -554,7 +554,7 @@ const MessageItem = React.memo<MessageItemProps>(({
               }}
               placeholder="輸入書籤名稱..."
               autoFocus
-              className="bg-zinc-950/80 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-100 placeholder:text-fg-subtle focus:outline-none focus:border-amber-500/60 w-40"
+              className="field w-40 rounded bg-zinc-950/80 border-zinc-800 px-2 py-0.5 text-xs"
             />
             <IconTipButton
               icon={<Check size={13} />}
@@ -834,7 +834,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 min-w-0 h-full flex flex-col bg-canvas text-zinc-100 overflow-hidden">
       {/* 頂部會話導航列 */}
-      <header className="h-14 border-b border-line px-4 flex items-center justify-between bg-surface-2 select-none">
+      <header className="panel-header justify-between px-4 select-none">
         <div className="flex items-center space-x-2 min-w-0">
           {/* 執行環境標籤：本機或 SSH 主機（模型設定也依此環境而定） */}
           {envLabel ? (

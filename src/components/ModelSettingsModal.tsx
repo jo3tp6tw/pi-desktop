@@ -452,7 +452,7 @@ interface ProfileEditorProps {
 }
 
 const inputCls =
-  'w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-primary transition';
+  'field rounded-lg bg-zinc-900 border-zinc-700/80 py-1.5 text-xs text-zinc-200';
 
 const numOrUndef = (v: string) => (v.trim() === '' || Number.isNaN(Number(v)) ? undefined : Number(v));
 

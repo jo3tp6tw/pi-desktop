@@ -57,7 +57,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
       className="h-full shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden select-none"
     >
       {/* 頂部 Tab 切換列 */}
-      <div className="h-11 px-1.5 bg-surface-2 border-b border-line flex items-center justify-between text-xs text-zinc-400">
+      <div className="panel-header justify-between px-1.5 text-xs text-zinc-400">
         <div className="flex items-center space-x-1">
           {/* Files Tab */}
           <button

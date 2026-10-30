@@ -369,8 +369,8 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
                   closeTab(t.key);
                 }}
                 title="關閉終端機"
-                className={`shrink-0 p-0.5 rounded hover:bg-zinc-700 hover:text-zinc-100 ${
-                  t.key === activeKey ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                className={`icon-btn focus-ring-inset p-0.5 hover:bg-zinc-700 ${
+                  t.key === activeKey ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
                 }`}
               >
                 <X size={11} />
@@ -384,14 +384,14 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
           <button
             onClick={() => addTab()}
             title="新增終端機"
-            className="p-1 rounded-l hover:bg-zinc-800 hover:text-zinc-100 transition"
+            className="icon-btn rounded-r-none"
           >
             <Plus size={14} />
           </button>
           <button
             onClick={() => setMenuOpen((o) => !o)}
             title="選擇 Shell"
-            className="py-1 px-0.5 rounded-r hover:bg-zinc-800 hover:text-zinc-100 transition"
+            className="icon-btn rounded-l-none"
           >
             <ChevronDown size={12} />
           </button>
@@ -428,7 +428,7 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
         <button
           onClick={() => setClearSignal((n) => n + 1)}
           title="清除畫面"
-          className="p-1 rounded hover:bg-zinc-800 hover:text-zinc-100 transition shrink-0"
+          className="icon-btn"
         >
           <Trash2 size={13} />
         </button>

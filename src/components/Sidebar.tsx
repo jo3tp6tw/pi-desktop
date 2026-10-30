@@ -97,7 +97,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }
       }}
     >
-      {/* 頂部區域 */}
+      {/* 頂部標題列：與中欄、右欄的第一列同高 */}
+      <div className="panel-header justify-between pl-3 pr-1.5 text-xs text-zinc-400">
+        <span className="font-semibold text-zinc-300">Projects</span>
+        <div className="flex items-center gap-0.5">
+          <button
+            title="Filter projects"
+            className="icon-btn"
+          >
+            <Filter size={15} />
+          </button>
+          <button
+            title="新增 SSH 遠端專案 (Native SSH)"
+            onClick={onOpenSshModal}
+            className="icon-btn text-cyan-400 hover:text-cyan-300"
+          >
+            <Server size={15} />
+          </button>
+          <button
+            title="Open Folder / Add Local Project"
+            onClick={onOpenFolder}
+            className="icon-btn"
+          >
+            <FolderPlus size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* 專案列表 */}
       <div
         className="flex-1 overflow-y-auto px-1.5 py-1.5"
         onContextMenu={(e) => {
@@ -109,32 +136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Projects 區塊 */}
         <div className="mb-4">
-          <div className="flex items-center justify-between px-2 mb-2 text-xs text-zinc-400">
-            <span className="text-xs font-semibold text-zinc-300">Projects</span>
-            <div className="flex items-center space-x-1.5">
-              <button 
-                title="Filter projects" 
-                className="hover:text-zinc-100 p-1 rounded hover:bg-zinc-800 transition"
-              >
-                <Filter size={15} />
-              </button>
-              <button 
-                title="新增 SSH 遠端專案 (Native SSH)" 
-                onClick={onOpenSshModal}
-                className="text-cyan-400 hover:text-cyan-300 p-1 rounded hover:bg-zinc-800 transition"
-              >
-                <Server size={15} />
-              </button>
-              <button 
-                title="Open Folder / Add Local Project" 
-                onClick={onOpenFolder}
-                className="hover:text-zinc-100 p-1 rounded hover:bg-zinc-800 transition"
-              >
-                <FolderPlus size={16} />
-              </button>
-            </div>
-          </div>
-
           {/* 專案列表 */}
           <div className="space-y-1">
             {projects.map((project) => {
@@ -151,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onProjectContextMenu?.(project, e.clientX, e.clientY);
                     }}
                     title={project.ssh ? `[SSH] ${project.ssh.host}:${project.path}` : project.path}
-                    className="flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md cursor-pointer hover:bg-zinc-800/60 transition group text-zinc-300"
+                    className="list-row group space-x-2.5 text-zinc-300"
                   >
                     {project.ssh ? (
                       <Server size={16} className="text-cyan-400 group-hover:text-cyan-300 shrink-0" />
@@ -170,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onNewSession(project.id);
                       }}
                       title="New chat in this project"
-                      className="opacity-0 group-hover:opacity-100 hover:text-zinc-100 p-0.5 rounded transition shrink-0"
+                      className="icon-btn opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                     >
                       <Plus size={14} />
                     </button>
@@ -191,11 +192,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               onSessionContextMenu?.(session, project, e.clientX, e.clientY);
                             }}
                             title={session.filePath || session.title}
-                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-md cursor-pointer text-sm transition group ${
-                              isActive
-                                ? 'bg-zinc-700/60 text-zinc-100 font-medium'
-                                : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
-                            }`}
+                            aria-current={isActive ? 'page' : undefined}
+                            className="list-row group justify-between"
                           >
                             <span className="truncate pr-2">{session.title}</span>
                             <span className="text-2xs tabular-nums text-fg-subtle whitespace-nowrap group-hover:text-zinc-400">
@@ -238,17 +236,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         <div className="flex items-center space-x-1">
-          <button 
-            title="模型與細項參數設定" 
+          <button
+            title="模型與細項參數設定"
             onClick={onOpenModelSettings}
-            className="p-1.5 rounded-md hover:bg-zinc-800 hover:text-zinc-200 text-zinc-400 transition"
+            className="icon-btn p-1.5"
           >
             <Cpu size={14} />
           </button>
-          <button 
-            title="Pi 核心設定與更新" 
+          <button
+            title="Pi 核心設定與更新"
             onClick={onOpenCoreManager}
-            className="p-1.5 rounded-md hover:bg-zinc-800 hover:text-zinc-200 text-zinc-400 transition"
+            className="icon-btn p-1.5"
           >
             <Settings size={14} />
           </button>

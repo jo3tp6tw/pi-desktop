@@ -879,11 +879,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           onClick={handleGoUp}
           disabled={!canGoUp}
           title={upTitle}
-          className={`p-1.5 rounded transition shrink-0 ${
-            canGoUp
-              ? 'hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100'
-              : 'text-fg-disabled cursor-not-allowed'
-          }`}
+          className="icon-btn p-1.5"
         >
           <ArrowUp size={14} />
         </button>
@@ -906,7 +902,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   setIsEditingPath(false);
                 }
               }}
-              className="w-full bg-canvas border border-zinc-600 rounded px-2 py-0.5 text-xs font-mono text-zinc-100 outline-none"
+              className="field rounded px-2 py-0.5 text-xs font-mono"
               placeholder="輸入目錄路徑..."
             />
           ) : (
@@ -928,11 +924,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           onClick={() => navigateDirectoryFromHeader(currentWorkspace)}
           disabled={isAtWorkspaceRoot && !isViewingFile}
           title={`回到工作區根目錄 (${currentWorkspace})`}
-          className={`p-1.5 rounded transition shrink-0 ${
-            !isAtWorkspaceRoot || isViewingFile
-              ? 'hover:bg-zinc-800 text-amber-400/90 hover:text-amber-300'
-              : 'text-fg-disabled cursor-not-allowed'
-          }`}
+          className="icon-btn p-1.5"
         >
           <Home size={13} />
         </button>
@@ -941,11 +933,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
         <button
           onClick={toggleShowHidden}
           title={showHidden ? '目前顯示隱藏檔（點擊隱藏 . 開頭檔案）' : '目前隱藏 . 開頭檔案（點擊顯示隱藏檔）'}
-          className={`p-1.5 rounded transition shrink-0 ${
-            showHidden
-              ? 'bg-zinc-800/90 text-amber-300 hover:bg-zinc-700'
-              : 'text-fg-subtle hover:bg-zinc-800 hover:text-zinc-300'
-          }`}
+          aria-pressed={showHidden}
+          className="icon-btn p-1.5"
         >
           {showHidden ? <Eye size={13} /> : <EyeOff size={13} />}
         </button>
@@ -960,7 +949,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
             }
           }}
           title={activeFile ? '重新載入目前檔案' : '重新整理目前目錄'}
-          className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition shrink-0"
+          className="icon-btn p-1.5"
         >
           <RefreshCw size={13} className={dirLoading || fileLoading ? 'animate-spin text-amber-400' : ''} />
         </button>
@@ -1057,11 +1046,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 <button
                   onClick={toggleWordWrap}
                   title={wordWrap ? '關閉自動折行 (Word Wrap)' : '開啟自動折行 (Word Wrap)'}
-                  className={`p-1 rounded transition ${
-                    wordWrap
-                      ? 'bg-zinc-800 text-amber-300'
-                      : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-                  }`}
+                  aria-pressed={wordWrap}
+                  className="icon-btn"
                 >
                   <WrapText size={13} />
                 </button>
@@ -1073,14 +1059,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   <button
                     onClick={() => monacoEditorRef.current?.undo()}
                     title="倒退 / 復原 (Ctrl+Z)"
-                    className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition"
+                    className="icon-btn"
                   >
                     <Undo2 size={13} />
                   </button>
                   <button
                     onClick={() => monacoEditorRef.current?.redo()}
                     title="向前 / 重做 (Ctrl+Y)"
-                    className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition"
+                    className="icon-btn"
                   >
                     <Redo2 size={13} />
                   </button>
@@ -1093,10 +1079,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   onClick={handleSaveFile}
                   disabled={saving || !isDirty}
                   title="儲存檔案 (Ctrl+S)"
-                  className={`p-1 rounded transition ${
-                    isDirty
-                      ? 'bg-primary-solid hover:brightness-110 text-white shadow-sm'
-                      : 'text-fg-disabled cursor-default'
+                  className={`icon-btn ${
+                    isDirty ? 'bg-primary-solid text-white shadow-sm hover:bg-primary-solid hover:text-white hover:brightness-110' : ''
                   }`}
                 >
                   {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
@@ -1107,7 +1091,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               <button
                 onClick={handleCopyContent}
                 title={activeFile.content !== undefined ? '複製檔案內容' : '複製檔案路徑'}
-                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition"
+                className="icon-btn"
               >
                 {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
               </button>
@@ -1116,7 +1100,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               <button
                 onClick={() => openFile(activeFile.filePath, activeFile.name)}
                 title="重新載入檔案"
-                className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition"
+                className="icon-btn"
               >
                 <RefreshCw size={13} />
               </button>
@@ -1126,7 +1110,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 <button
                   onClick={() => handleShowInFolder(activeFile.filePath)}
                   title="在系統檔案總管中顯示"
-                  className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition"
+                  className="icon-btn"
                 >
                   <FolderOpen size={13} />
                 </button>
@@ -1184,7 +1168,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   <button
                     onClick={() => setImageZoom((z) => Math.max(25, z - 25))}
                     title="縮小"
-                    className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                    className="icon-btn"
                   >
                     <ZoomOut size={13} />
                   </button>
@@ -1192,14 +1176,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   <button
                     onClick={() => setImageZoom((z) => Math.min(400, z + 25))}
                     title="放大"
-                    className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                    className="icon-btn"
                   >
                     <ZoomIn size={13} />
                   </button>
                   <button
                     onClick={() => setImageZoom(100)}
                     title="重設縮放 (100%)"
-                    className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                    className="icon-btn"
                   >
                     <RotateCcw size={12} />
                   </button>
@@ -1294,7 +1278,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               else if (e.key === 'Escape') setCreatingItem(null);
             }}
             placeholder={creatingItem.isDirectory ? '輸入新資料夾名稱 (Enter 建立)…' : '輸入新檔案名稱 (Enter 建立)…'}
-            className="flex-1 bg-canvas border border-primary/70 rounded px-2 py-0.5 text-xs font-mono text-zinc-100 outline-none"
+            className="field w-auto min-w-0 flex-1 rounded px-2 py-0.5 text-xs font-mono"
           />
         </div>
       )}
@@ -1390,9 +1374,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
                     node.willReceiveDrop
                       ? 'bg-primary/25 ring-1 ring-primary text-white'
                       : node.isSelected
-                        ? 'bg-zinc-700/70 text-zinc-100'
+                        ? 'bg-primary/15 text-zinc-100'
                         : 'hover:bg-zinc-800/60'
-                  } ${isCut ? 'opacity-45' : ''} ${
+                  } ${node.isFocused && node.tree.hasFocus ? 'focus-inset' : ''} ${isCut ? 'opacity-45' : ''} ${
                     isHiddenItem ? 'text-zinc-400/75' : 'text-zinc-200'
                   }`}
                 >
@@ -1432,7 +1416,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                           if (e.key === 'Enter') node.submit(e.currentTarget.value);
                           else if (e.key === 'Escape') node.reset();
                         }}
-                        className="flex-1 min-w-0 bg-canvas border border-primary rounded px-1.5 py-0 text-xs font-mono text-zinc-100 outline-none"
+                        className="field w-auto min-w-0 flex-1 rounded px-1.5 py-0 text-xs font-mono"
                       />
                     ) : (
                       <span className={`truncate ${item.isParentLink ? 'font-mono text-zinc-400' : ''}`}>
@@ -1496,13 +1480,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
             <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTargets(null)}
-                className="px-3 py-1.5 rounded-md text-sm text-zinc-300 hover:bg-zinc-800 transition"
+                className="btn-ghost"
               >
                 取消
               </button>
               <button
                 onClick={confirmDeleteItems}
-                className="px-3 py-1.5 rounded-md text-sm bg-danger-solid hover:brightness-110 text-white transition"
+                className="btn-danger"
               >
                 刪除
               </button>

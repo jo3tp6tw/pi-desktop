@@ -1349,19 +1349,19 @@ export const App: React.FC = () => {
                 if (e.key === 'Enter') confirmRename();
                 if (e.key === 'Escape') setRenameTarget(null);
               }}
-              className="w-full rounded-md bg-canvas border border-line-strong px-3 py-2 text-sm text-zinc-100 outline-none focus:border-zinc-500"
+              className="field"
               placeholder="輸入對話名稱"
             />
             <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setRenameTarget(null)}
-                className="px-3 py-1.5 rounded-md text-sm text-zinc-300 hover:bg-zinc-800 transition"
+                className="btn-ghost"
               >
                 取消
               </button>
               <button
                 onClick={confirmRename}
-                className="px-3 py-1.5 rounded-md text-sm bg-primary-solid hover:brightness-110 text-white transition"
+                className="btn-primary"
               >
                 儲存
               </button>
@@ -1391,13 +1391,13 @@ export const App: React.FC = () => {
             <div className="mt-4 flex justify-end gap-2">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="px-3 py-1.5 rounded-md text-sm text-zinc-300 hover:bg-zinc-800 transition"
+                className="btn-ghost"
               >
                 取消
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-3 py-1.5 rounded-md text-sm bg-danger-solid hover:brightness-110 text-white transition"
+                className="btn-danger"
               >
                 刪除
               </button>

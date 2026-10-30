@@ -62,7 +62,7 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
         type="button"
         onClick={() => setIsExpanded((v) => !v)}
         title={isExpanded ? '收合子代理' : '展開子代理詳情'}
-        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors"
+        className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors"
       >
         {info.icon}
         <span className={`shrink-0 ${info.color} font-semibold capitalize`}>

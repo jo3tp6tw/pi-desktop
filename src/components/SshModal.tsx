@@ -229,7 +229,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                     if (e.key === 'Enter') handleBrowse(pathInput);
                   }}
                   placeholder="例如：ubuntu@192.168.1.50 或 my-linux-server"
-                  className="w-full rounded-md bg-surface border border-line-strong px-3 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
+                  className="field bg-surface py-1.5 font-mono"
                 />
               </div>
               <div className="col-span-3">
@@ -239,7 +239,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
                   placeholder="22"
-                  className="w-full rounded-md bg-surface border border-line-strong px-3 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
+                  className="field bg-surface py-1.5 font-mono"
                 />
               </div>
             </div>
@@ -258,7 +258,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                       if (e.key === 'Enter') handleBrowse(pathInput);
                     }}
                     placeholder="留空代表使用 SSH Key 免密登入"
-                    className="w-full rounded-md bg-surface border border-line-strong pl-3 pr-9 py-1.5 text-sm text-zinc-100 font-mono outline-none focus:border-cyan-500"
+                    className="field bg-surface pl-3 pr-9 py-1.5 font-mono"
                   />
                   <button
                     type="button"
@@ -381,7 +381,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleBrowse(pathInput);
                       }}
-                      className="flex-1 rounded bg-surface border border-line-strong px-2.5 py-1 text-xs font-mono text-zinc-100 outline-none focus:border-cyan-500"
+                      className="field w-auto min-w-0 flex-1 rounded bg-surface px-2.5 py-1 text-xs font-mono"
                       placeholder="/home/user/..."
                     />
 
@@ -418,7 +418,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                           if (e.key === 'Escape') setIsCreatingFolder(false);
                         }}
                         placeholder="輸入新資料夾名稱..."
-                        className="flex-1 rounded bg-canvas border border-line-strong px-2.5 py-1 text-xs text-zinc-100 font-mono outline-none focus:border-cyan-500"
+                        className="field w-auto min-w-0 flex-1 rounded px-2.5 py-1 text-xs font-mono"
                       />
                       <button
                         onClick={handleCreateFolder}
