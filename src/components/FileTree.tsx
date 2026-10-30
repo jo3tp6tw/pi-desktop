@@ -38,6 +38,7 @@ import {
 import { Markdown } from './Markdown';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
 import { ConfirmModal } from './Modal';
+import { contextMenuPoint, isContextMenuKey } from '../lib/a11y';
 import type { MonacoCodeEditorHandle } from './MonacoCodeEditor';
 import type { FileItem, SshConfig, DirectoryReadResult, FileReadResult } from '../types';
 
@@ -689,42 +690,18 @@ export const FileTree: React.FC<FileTreeProps> = ({
     }
   }, [deleteTargets, ssh, loadDirectory, showOpToast]);
 
-  // 鍵盤快捷鍵支援：在檔案樹中按 Ctrl+C / Ctrl+X / Ctrl+V
-  const handleTreeKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (activeFile || isEditingPath || creatingItem || deleteTargets) return;
-      const tree = treeRef.current;
-      if (!tree || tree.isEditing) return;
-
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-        const selected = tree.selectedNodes.map((n) => n.data).filter((d) => !d.isParentLink);
-        if (selected.length > 0) {
-          e.preventDefault();
-          handleCopyOrCutItems(selected, 'copy');
-        }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
-        const selected = tree.selectedNodes.map((n) => n.data).filter((d) => !d.isParentLink);
-        if (selected.length > 0) {
-          e.preventDefault();
-          handleCopyOrCutItems(selected, 'cut');
-        }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
-        if (fileClipboard && fileClipboard.paths.length > 0) {
-          e.preventDefault();
-          handlePasteItems(currentDirRef.current);
-        }
-      }
-    },
-    [activeFile, isEditingPath, creatingItem, deleteTargets, fileClipboard, handleCopyOrCutItems, handlePasteItems]
-  );
-
   // 開啟右鍵選單（支援單選、多選與空白區右鍵）
   const openNodeContextMenu = useCallback(
-    (e: React.MouseEvent, targetNode?: ArboristFileNode) => {
+    (e: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>, targetNode?: ArboristFileNode) => {
       e.preventDefault();
       e.stopPropagation();
 
       const tree = treeRef.current;
+      // 鍵盤（Shift+F10 / 選單鍵）觸發時，對象是目前聚焦的列
+      if (!targetNode && !('button' in e && e.button === 2)) targetNode = tree?.focusedNode?.data;
+      const anchor = targetNode
+        ? treeContainerRef.current?.querySelector(`[data-node-id="${CSS.escape(targetNode.id)}"]`)
+        : null;
       let selectedData: ArboristFileNode[] = [];
 
       if (targetNode && !targetNode.isParentLink) {
@@ -839,9 +816,40 @@ export const FileTree: React.FC<FileTreeProps> = ({
         });
       }
 
-      setContextMenu({ x: e.clientX, y: e.clientY, items: menuItems });
+      setContextMenu({ ...contextMenuPoint(e, anchor), items: menuItems });
     },
     [fileClipboard, ssh, loadDirectory, openFile, handleCopyOrCutItems, handlePasteItems, showOpToast]
+  );
+
+  // 鍵盤快捷鍵支援：在檔案樹中按 Ctrl+C / Ctrl+X / Ctrl+V
+  const handleTreeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (activeFile || isEditingPath || creatingItem || deleteTargets) return;
+      const tree = treeRef.current;
+      if (!tree || tree.isEditing) return;
+
+      if (isContextMenuKey(e)) {
+        openNodeContextMenu(e as React.KeyboardEvent<HTMLElement>);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        const selected = tree.selectedNodes.map((n) => n.data).filter((d) => !d.isParentLink);
+        if (selected.length > 0) {
+          e.preventDefault();
+          handleCopyOrCutItems(selected, 'copy');
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+        const selected = tree.selectedNodes.map((n) => n.data).filter((d) => !d.isParentLink);
+        if (selected.length > 0) {
+          e.preventDefault();
+          handleCopyOrCutItems(selected, 'cut');
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        if (fileClipboard && fileClipboard.paths.length > 0) {
+          e.preventDefault();
+          handlePasteItems(currentDirRef.current);
+        }
+      }
+    },
+    [activeFile, isEditingPath, creatingItem, deleteTargets, fileClipboard, handleCopyOrCutItems, handlePasteItems, openNodeContextMenu]
   );
 
   const normPathCompare = (p: string) => (p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
@@ -1402,6 +1410,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 <div
                   ref={dragHandle}
                   style={style}
+                  data-node-id={item.id}
                   onClick={(e) => {
                     if (node.isEditing) return;
                     // 若按住 Ctrl / Cmd / Shift 則走多選邏輯，不進入目錄或開檔

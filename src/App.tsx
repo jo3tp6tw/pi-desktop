@@ -72,6 +72,11 @@ const RIGHT_PANEL_MAX = 720;
 // 中間對話區至少要保留的寬度，避免被兩側擠壓到不可用
 const CENTER_MIN = 360;
 const PANEL_WIDTH_KEY = 'pi-ui:panel-widths';
+// 依目前視窗與另一側的寬度，算出這一側實際能拉到的最大寬度
+const sidebarMaxFor = (right: number) =>
+  Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, window.innerWidth - right - CENTER_MIN));
+const rightPanelMaxFor = (sidebar: number) =>
+  Math.max(RIGHT_PANEL_MIN, Math.min(RIGHT_PANEL_MAX, window.innerWidth - sidebar - CENTER_MIN));
 
 export const App: React.FC = () => {
   // 1. Projects & Sessions
@@ -114,39 +119,21 @@ export const App: React.FC = () => {
   }, []);
 
   const handleSidebarResize = useCallback((deltaX: number) => {
-    setSidebarWidth((w) => {
-      const maxByWindow = window.innerWidth - panelWidthsRef.current.right - CENTER_MIN;
-      const max = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, maxByWindow));
-      return Math.min(Math.max(w + deltaX, SIDEBAR_MIN), max);
-    });
+    setSidebarWidth((w) => Math.min(Math.max(w + deltaX, SIDEBAR_MIN), sidebarMaxFor(panelWidthsRef.current.right)));
   }, []);
 
   const handleRightPanelResize = useCallback((deltaX: number) => {
     // 右欄往左拖（deltaX < 0）會變寬，因此取負號
-    setRightPanelWidth((w) => {
-      const maxByWindow = window.innerWidth - panelWidthsRef.current.sidebar - CENTER_MIN;
-      const max = Math.max(RIGHT_PANEL_MIN, Math.min(RIGHT_PANEL_MAX, maxByWindow));
-      return Math.min(Math.max(w - deltaX, RIGHT_PANEL_MIN), max);
-    });
+    setRightPanelWidth((w) =>
+      Math.min(Math.max(w - deltaX, RIGHT_PANEL_MIN), rightPanelMaxFor(panelWidthsRef.current.sidebar))
+    );
   }, []);
 
   // 視窗縮小到放不下時，自動收斂兩側寬度
   useEffect(() => {
     const onWindowResize = () => {
-      setRightPanelWidth((w) => {
-        const max = Math.max(
-          RIGHT_PANEL_MIN,
-          Math.min(RIGHT_PANEL_MAX, window.innerWidth - panelWidthsRef.current.sidebar - CENTER_MIN),
-        );
-        return Math.min(w, max);
-      });
-      setSidebarWidth((w) => {
-        const max = Math.max(
-          SIDEBAR_MIN,
-          Math.min(SIDEBAR_MAX, window.innerWidth - panelWidthsRef.current.right - CENTER_MIN),
-        );
-        return Math.min(w, max);
-      });
+      setRightPanelWidth((w) => Math.min(w, rightPanelMaxFor(panelWidthsRef.current.sidebar)));
+      setSidebarWidth((w) => Math.min(w, sidebarMaxFor(panelWidthsRef.current.right)));
     };
     window.addEventListener('resize', onWindowResize);
     return () => window.removeEventListener('resize', onWindowResize);
@@ -1301,6 +1288,9 @@ export const App: React.FC = () => {
       {/* 可拖曳分隔線：左側欄 ↔ 中間對話區 */}
       <ResizeHandle
         ariaLabel="Resize sidebar"
+        value={sidebarWidth}
+        min={SIDEBAR_MIN}
+        max={sidebarMaxFor(rightPanelWidth)}
         onResize={handleSidebarResize}
         onResizeEnd={() => persistPanelWidths(sidebarWidth, rightPanelWidth)}
         onReset={() => setSidebarWidth(SIDEBAR_DEFAULT)}
@@ -1340,6 +1330,10 @@ export const App: React.FC = () => {
       {/* 可拖曳分隔線：中間對話區 ↔ 右側欄 */}
       <ResizeHandle
         ariaLabel="Resize right panel"
+        value={rightPanelWidth}
+        min={RIGHT_PANEL_MIN}
+        max={rightPanelMaxFor(sidebarWidth)}
+        panelAfter
         onResize={handleRightPanelResize}
         onResizeEnd={() => persistPanelWidths(sidebarWidth, rightPanelWidth)}
         onReset={() => setRightPanelWidth(RIGHT_PANEL_DEFAULT)}
@@ -1463,7 +1457,7 @@ export const App: React.FC = () => {
             className="flex items-start gap-2 rounded-lg border border-danger/40 bg-overlay py-2 pl-3 pr-1.5 text-sm text-fg-strong shadow-2xl"
           >
             <AlertCircle size={15} className="mt-0.5 shrink-0 text-danger" />
-            <span className="min-w-0 flex-1 select-text break-words">{toast.text}</span>
+            <span className="min-w-0 flex-1 break-words">{toast.text}</span>
             <button
               title="Copy error"
               onClick={() => (ipcRenderer ? ipcRenderer.invoke('clipboard:write', toast.text) : navigator.clipboard?.writeText(toast.text))}

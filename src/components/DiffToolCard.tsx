@@ -100,41 +100,30 @@ export const DiffToolCard: React.FC<{
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setOpen((v) => !v);
-          }
-        }}
-        title={open ? 'Collapse' : 'Show diff'}
-        className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
-      >
+      {/* 標題列：鋪滿整列的透明按鈕負責展開；檔案路徑是疊在上面的另一個按鈕，避免按鈕包按鈕 */}
+      <div className="relative w-full py-1 flex items-center gap-2 text-zinc-300 text-sm hover:text-zinc-100 transition-colors select-none">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-label={`${tool.name} ${path}${added ? `, ${added} added` : ''}${removed ? `, ${removed} removed` : ''}`}
+          title={open ? 'Collapse' : 'Show diff'}
+          className="focus-ring-inset absolute inset-0 rounded"
+        />
         <Icon size={13} className="text-fg-muted shrink-0" />
         <span className="shrink-0 font-mono text-zinc-200 font-semibold">{tool.name}</span>
-        {path ? (
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              if (onOpenPath) {
-                e.stopPropagation();
-                onOpenPath(path);
-              }
-            }}
-            onKeyDown={(e) => {
-              if ((e.key === 'Enter' || e.key === ' ') && onOpenPath) {
-                e.preventDefault();
-                e.stopPropagation();
-                onOpenPath(path);
-              }
-            }}
+        {path && onOpenPath ? (
+          <button
+            type="button"
+            onClick={() => onOpenPath(path)}
             title={path}
-            className="truncate font-mono text-fg-subtle hover:text-zinc-200 transition-colors cursor-pointer text-left"
+            aria-label={`Open ${path}`}
+            className="relative z-10 min-w-0 truncate rounded font-mono text-fg-subtle hover:text-zinc-200 transition-colors text-left"
           >
+            {path}
+          </button>
+        ) : path ? (
+          <span title={path} className="min-w-0 truncate font-mono text-fg-subtle">
             {path}
           </span>
         ) : null}

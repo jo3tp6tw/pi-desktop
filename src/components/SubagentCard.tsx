@@ -58,12 +58,16 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsExpanded((v) => !v)}
-        title={isExpanded ? 'Collapse' : 'Expand'}
-        className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors"
-      >
+      {/* 標題列：鋪滿整列的透明按鈕負責展開；「Logs」是疊在上面的另一個按鈕，避免按鈕包按鈕 */}
+      <div className="relative w-full py-1 flex items-center gap-2 text-zinc-300 text-sm hover:text-zinc-100 transition-colors">
+        <button
+          type="button"
+          onClick={() => setIsExpanded((v) => !v)}
+          aria-expanded={isExpanded}
+          aria-label={`${info.label} ${task.status}${task.task ? `: ${task.task}` : ''}`}
+          title={isExpanded ? 'Collapse' : 'Expand'}
+          className="focus-ring-inset absolute inset-0 rounded"
+        />
         {info.icon}
         <span className={`shrink-0 ${info.color} font-semibold capitalize`}>
           {info.label}
@@ -90,23 +94,21 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
         )}
 
         {onInspect && (
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onInspect(task);
-            }}
+          <button
+            type="button"
+            onClick={() => onInspect(task)}
             title="Open logs in side panel"
-            className="text-xs text-zinc-400 hover:text-zinc-200 px-1 py-0.5 rounded hover:bg-zinc-800 shrink-0 transition flex items-center space-x-0.5 cursor-pointer"
+            className="relative z-10 text-xs text-zinc-400 hover:text-zinc-200 px-1 py-0.5 rounded hover:bg-zinc-800 shrink-0 transition flex items-center space-x-0.5"
           >
             <Eye size={11} />
             <span>Logs</span>
-          </span>
+          </button>
         )}
 
         <span className="ml-auto shrink-0 text-fg-subtle pl-1">
           {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </span>
-      </button>
+      </div>
 
       {/* 展開後的詳細內容（思考過程、內部工具調用、產出） */}
       {isExpanded && (

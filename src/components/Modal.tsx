@@ -39,15 +39,22 @@ export const Modal: React.FC<ModalProps> = ({
       dialog.querySelector<HTMLElement>('[data-autofocus]') ?? dialog.querySelector<HTMLElement>(FOCUSABLE);
     target?.focus();
 
-    // Esc 由瀏覽器原生關閉，再同步回 React 狀態。
+    // Esc 先觸發同步的 cancel，直接交給 React 關閉（close 事件要等下一次繪製才送達）
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onCloseRef.current();
+    };
+    // 其他原生關閉（例如瀏覽器不讓 cancel 被攔下時）由 close 事件同步回 React 狀態。
     // close 事件是非同步送達的：cleanup 呼叫 close() 後若同一個 dialog 又被開啟（StrictMode 會重跑 effect），
     // 遲到的事件不能把它關掉，所以只在 dialog 確實已關閉時才通知
     const handleClose = () => {
       if (!dialog.open) onCloseRef.current();
     };
     dialog.addEventListener('close', handleClose);
+    dialog.addEventListener('cancel', handleCancel);
     return () => {
       dialog.removeEventListener('close', handleClose);
+      dialog.removeEventListener('cancel', handleCancel);
       if (dialog.open && dialog.isConnected) dialog.close();
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };

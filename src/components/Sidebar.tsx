@@ -12,6 +12,7 @@ import {
   Server
 } from 'lucide-react';
 import type { Project, Session, CoreInfo } from '../types';
+import { contextMenuPoint, isContextMenuKey } from '../lib/a11y';
 
 interface SidebarProps {
   projects: Project[];
@@ -77,10 +78,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return bestId;
   }, [projects]);
 
-  const toggleProject = (projectId: string) => {
+  // 右鍵或 Shift+F10 / 選單鍵開啟選單
+  type MenuEvent = React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>;
+  const openProjectMenu = (e: MenuEvent, project: Project) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { x, y } = contextMenuPoint(e);
+    onProjectContextMenu?.(project, x, y);
+  };
+  const openSessionMenu = (e: MenuEvent, session: Session, project: Project) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { x, y } = contextMenuPoint(e);
+    onSessionContextMenu?.(session, project, x, y);
+  };
+
+  // 依畫面上目前的狀態切換（預設展開的專案還沒有記錄，不能用 !prev[id]）
+  const toggleProject = (projectId: string, isExpanded: boolean) => {
     setExpandedProjects((prev) => ({
       ...prev,
-      [projectId]: !prev[projectId],
+      [projectId]: !isExpanded,
     }));
   };
 
@@ -136,35 +153,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
               const isExpanded = expandedProjects[project.id] ?? (project.id === mostRecentProjectId && !!project.sessions.length);
               return (
                 <div key={project.id} className="text-sm">
-                  {/* 專案資料夾名稱 */}
-                  <div
-                    onClick={() => toggleProject(project.id)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onProjectContextMenu?.(project, e.clientX, e.clientY);
-                    }}
-                    title={project.ssh ? `[SSH] ${project.ssh.host}:${project.path}` : project.path}
-                    className="list-row group space-x-2.5 text-zinc-300"
-                  >
-                    {project.ssh ? (
-                      <Server size={16} className="text-cyan-400 group-hover:text-cyan-300 shrink-0" />
-                    ) : (
-                      <Folder size={16} className="text-zinc-400 group-hover:text-zinc-200 shrink-0" />
-                    )}
-                    <span className="font-medium flex-1 truncate">{project.name}</span>
-                    {project.ssh && (
-                      <span className="text-2xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shrink-0">
-                        SSH
-                      </span>
-                    )}
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNewSession(project.id);
+                  {/* 專案資料夾名稱：展開/收合按鈕，「New chat」與它並列（不能包在按鈕裡） */}
+                  <div className="group flex items-center rounded-md transition-colors hover:bg-raised/50">
+                    <button
+                      onClick={() => toggleProject(project.id, isExpanded)}
+                      onContextMenu={(e) => openProjectMenu(e, project)}
+                      onKeyDown={(e) => {
+                        if (isContextMenuKey(e)) openProjectMenu(e, project);
                       }}
+                      aria-expanded={isExpanded}
+                      title={project.ssh ? `[SSH] ${project.ssh.host}:${project.path}` : project.path}
+                      className="list-row focus-ring-inset min-w-0 flex-1 gap-2.5 text-zinc-300 hover:bg-transparent"
+                    >
+                      {project.ssh ? (
+                        <Server size={16} className="text-cyan-400 group-hover:text-cyan-300 shrink-0" />
+                      ) : (
+                        <Folder size={16} className="text-zinc-400 group-hover:text-zinc-200 shrink-0" />
+                      )}
+                      <span className="font-medium flex-1 truncate text-left">{project.name}</span>
+                      {project.ssh && (
+                        <span className="text-2xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shrink-0">
+                          SSH
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => onNewSession(project.id)}
                       title="New chat"
-                      className="icon-btn opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                      aria-label={`New chat in ${project.name}`}
+                      className="icon-btn mr-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                     >
                       <Plus size={14} />
                     </button>
@@ -176,23 +193,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {project.sessions.map((session) => {
                         const isActive = session.id === activeSessionId;
                         return (
-                          <div
+                          <button
                             key={session.id}
                             onClick={() => onSelectSession(session, project)}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onSessionContextMenu?.(session, project, e.clientX, e.clientY);
+                            onContextMenu={(e) => openSessionMenu(e, session, project)}
+                            onKeyDown={(e) => {
+                              if (isContextMenuKey(e)) openSessionMenu(e, session, project);
                             }}
                             title={session.filePath || session.title}
                             aria-current={isActive ? 'page' : undefined}
-                            className="list-row group justify-between"
+                            className="list-row focus-ring-inset group w-full justify-between text-left"
                           >
                             <span className="truncate pr-2">{session.title}</span>
                             <span className="text-2xs tabular-nums text-fg-subtle whitespace-nowrap group-hover:text-zinc-400">
                               {session.timeAgo}
                             </span>
-                          </div>
+                          </button>
                         );
                       })}
                       {project.sessions.length === 0 && (

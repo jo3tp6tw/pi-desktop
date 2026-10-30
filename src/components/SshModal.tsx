@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { SshConfig, RemoteBrowseResult, DiscoveredRemoteProject } from '../types';
 import { Modal } from './Modal';
+import { handleTabListKeyDown } from '../lib/a11y';
 
 interface SshModalProps {
   isOpen: boolean;
@@ -289,7 +290,7 @@ export const SshModal: React.FC<SshModalProps> = ({
           {error && (
             <div role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-xs text-danger flex items-start gap-2">
               <AlertCircle size={15} className="text-danger shrink-0 mt-0.5" />
-              <div className="break-all leading-relaxed select-text">{error}</div>
+              <div className="break-all leading-relaxed">{error}</div>
             </div>
           )}
 
@@ -319,8 +320,18 @@ export const SshModal: React.FC<SshModalProps> = ({
 
               {/* 分頁切換：瀏覽遠端資料夾 vs 遠端既有 Pi 專案 */}
               <div className="flex items-center justify-between border-b border-line">
-                <div className="flex items-center gap-1">
+                <div
+                  role="tablist"
+                  aria-label="Remote source"
+                  onKeyDown={(e) => handleTabListKeyDown(e)}
+                  className="flex items-center gap-1"
+                >
                   <button
+                    role="tab"
+                    id={`${id}-tab-browse`}
+                    aria-selected={activeTab === 'browse'}
+                    aria-controls={`${id}-panel`}
+                    tabIndex={activeTab === 'browse' ? 0 : -1}
                     onClick={() => setActiveTab('browse')}
                     className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
                       activeTab === 'browse'
@@ -332,6 +343,11 @@ export const SshModal: React.FC<SshModalProps> = ({
                     <span>Browse folders</span>
                   </button>
                   <button
+                    role="tab"
+                    id={`${id}-tab-discovered`}
+                    aria-selected={activeTab === 'discovered'}
+                    aria-controls={`${id}-panel`}
+                    tabIndex={activeTab === 'discovered' ? 0 : -1}
                     onClick={() => setActiveTab('discovered')}
                     className={`px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5 ${
                       activeTab === 'discovered'
@@ -348,7 +364,12 @@ export const SshModal: React.FC<SshModalProps> = ({
               </div>
 
               {activeTab === 'browse' ? (
-                <div className="rounded-lg border border-line bg-canvas overflow-hidden">
+                <div
+                  role="tabpanel"
+                  id={`${id}-panel`}
+                  aria-labelledby={`${id}-tab-browse`}
+                  className="rounded-lg border border-line bg-canvas overflow-hidden"
+                >
                   {/* 路徑導覽列 */}
                   <div className="p-2 border-b border-line bg-surface-2 flex items-center gap-1.5">
                     <button
@@ -442,7 +463,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                     {browseData.parentPath && (
                       <button
                         onClick={() => handleBrowse(browseData.parentPath!)}
-                        className="focus-inset w-full px-3 py-2 flex items-center gap-2.5 text-xs text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200 transition"
+                        className="focus-ring-inset w-full px-3 py-2 flex items-center gap-2.5 text-xs text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200 transition"
                       >
                         <CornerLeftUp size={14} className="text-fg-subtle" />
                         <span className="font-mono">..</span>
@@ -461,7 +482,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                         >
                           <button
                             onClick={() => handleBrowse(dir.path)}
-                            className="focus-inset min-w-0 flex-1 pl-3 py-2 flex items-center gap-2.5 text-left"
+                            className="focus-ring-inset min-w-0 flex-1 pl-3 py-2 flex items-center gap-2.5 text-left"
                           >
                             <Folder size={14} className="text-amber-400/90 shrink-0" />
                             <span className="font-mono truncate">{dir.name}</span>
@@ -494,7 +515,12 @@ export const SshModal: React.FC<SshModalProps> = ({
                 </div>
               ) : (
                 /* 遠端既有 Pi 專案清單 */
-                <div className="rounded-lg border border-line bg-canvas overflow-hidden max-h-72 overflow-y-auto divide-y divide-line">
+                <div
+                  role="tabpanel"
+                  id={`${id}-panel`}
+                  aria-labelledby={`${id}-tab-discovered`}
+                  className="rounded-lg border border-line bg-canvas overflow-hidden max-h-72 overflow-y-auto divide-y divide-line"
+                >
                   {!browseData.discoveredProjects || browseData.discoveredProjects.length === 0 ? (
                     <div className="py-10 text-center text-xs text-fg-subtle">
                       No Pi sessions on this host.

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useId } from 'react';
 import { 
   Bot, 
   Terminal, 
@@ -12,6 +12,7 @@ import {
   FileText
 } from 'lucide-react';
 import type { SubagentTask } from '../types';
+import { handleTabListKeyDown } from '../lib/a11y';
 
 interface SubagentInspectorProps {
   subagents: SubagentTask[];
@@ -25,6 +26,7 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
   onSelectSubagent,
 }) => {
   const currentSubagent = subagents.find((s) => s.id === selectedSubagentId) || subagents[0];
+  const idPrefix = useId();
 
   const getAgentIcon = (agent: string) => {
     switch (agent.toLowerCase()) {
@@ -57,12 +59,22 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Subagent 水平切換標籤 */}
-          <div className="flex items-center space-x-1 p-2 bg-surface-2 border-b border-zinc-800/80 overflow-x-auto select-none">
+          <div
+            role="tablist"
+            aria-label="Subagents"
+            onKeyDown={(e) => handleTabListKeyDown(e)}
+            className="flex items-center space-x-1 p-2 bg-surface-2 border-b border-zinc-800/80 overflow-x-auto select-none"
+          >
             {subagents.map((agent) => {
               const isSelected = agent.id === (currentSubagent?.id);
               return (
                 <button
                   key={agent.id}
+                  role="tab"
+                  id={`${idPrefix}-tab-${agent.id}`}
+                  aria-selected={isSelected}
+                  aria-controls={`${idPrefix}-panel`}
+                  tabIndex={isSelected ? 0 : -1}
                   onClick={() => onSelectSubagent(agent.id)}
                   className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs transition shrink-0 ${
                     isSelected
@@ -73,10 +85,16 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
                   {getAgentIcon(agent.agent)}
                   <span className="capitalize">{agent.agent}</span>
                   {agent.status === 'running' && (
-                    <Loader2 size={11} className="animate-spin text-warning" />
+                    <>
+                      <Loader2 size={11} className="animate-spin text-warning" />
+                      <span className="sr-only"> (running)</span>
+                    </>
                   )}
                   {agent.status === 'completed' && (
-                    <CheckCircle2 size={11} className="text-success" />
+                    <>
+                      <CheckCircle2 size={11} className="text-success" />
+                      <span className="sr-only"> (done)</span>
+                    </>
                   )}
                 </button>
               );
@@ -85,7 +103,12 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
 
           {/* 目前選中 Subagent 的詳細紀錄 */}
           {currentSubagent && (
-            <div className="flex-1 overflow-y-auto p-2 space-y-2.5">
+            <div
+              role="tabpanel"
+              id={`${idPrefix}-panel`}
+              aria-labelledby={`${idPrefix}-tab-${currentSubagent.id}`}
+              className="flex-1 overflow-y-auto p-2 space-y-2.5"
+            >
               {/* 任務摘要卡片 */}
               <div className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-sm space-y-1.5">
                 <div className="flex items-center justify-between text-zinc-400 text-xs">

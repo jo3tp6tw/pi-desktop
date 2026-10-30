@@ -221,7 +221,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
               }`}
             >
               {status.error ? <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> : <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
-              <span className="select-text break-words">{status.text}</span>
+              <span className="break-words">{status.text}</span>
             </div>
           )}
 

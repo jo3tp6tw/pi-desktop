@@ -230,43 +230,30 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={cycle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            cycle();
-          }
-        }}
-        title={state === 0 ? summary || 'Expand' : state === 1 ? 'Show output' : 'Collapse'}
-        className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
-      >
+      {/* 標題列：鋪滿整列的透明按鈕負責展開；檔案路徑是疊在上面的另一個按鈕，避免按鈕包按鈕 */}
+      <div className="relative w-full py-1 flex items-center gap-2 text-zinc-300 text-sm hover:text-zinc-100 transition-colors select-none">
+        <button
+          type="button"
+          onClick={cycle}
+          aria-expanded={state > 0}
+          aria-label={`${tool.name} ${tool.status}${summary ? `: ${summary}` : ''}`}
+          title={state === 0 ? summary || 'Expand' : state === 1 ? 'Show output' : 'Collapse'}
+          className="focus-ring-inset absolute inset-0 rounded"
+        />
         <Terminal size={13} className="text-fg-muted shrink-0" />
         <span className="shrink-0 font-mono text-zinc-200 font-semibold">{tool.name}</span>
         {state === 0 && summary ? (
           filePathArg && onOpenPath ? (
             <>
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenPath(filePathArg);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onOpenPath(filePathArg);
-                  }
-                }}
+              <button
+                type="button"
+                onClick={() => onOpenPath(filePathArg)}
                 title={filePathArg}
-                className="truncate font-mono text-fg-subtle hover:text-zinc-200 transition-colors cursor-pointer text-left"
+                aria-label={`Open ${filePathArg}`}
+                className="relative z-10 min-w-0 truncate rounded font-mono text-fg-subtle hover:text-zinc-200 transition-colors text-left"
               >
                 {summary}
-              </span>
+              </button>
               <span className="flex-1 min-w-0" />
             </>
           ) : (
@@ -531,7 +518,7 @@ const MessageItem = React.memo<MessageItemProps>(({
               return isUser ? (
                 <div
                   key={index}
-                  className={`px-4 py-3 rounded-xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm select-text bg-zinc-800 text-zinc-100 rounded-br-xs border ${
+                  className={`px-4 py-3 rounded-xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm bg-zinc-800 text-zinc-100 rounded-br-xs border ${
                     message.omitted
                       ? 'border-dashed border-zinc-600 line-through decoration-zinc-500/50'
                       : 'border-zinc-700/60'
@@ -962,7 +949,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <Bot size={16} />
             </div>
             <div className="flex items-center gap-2 py-1 text-sm text-fg-muted">
-              <Loader2 size={13} className="animate-spin motion-reduce:animate-none" />
+              <Loader2 size={13} className="animate-spin" />
               Working…
             </div>
           </div>

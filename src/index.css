@@ -43,6 +43,11 @@
     outline: 2px solid rgb(var(--primary));
     outline-offset: 2px;
   }
+
+  /* 內容預設可選取；按鈕文字不可選，避免雙擊按鈕時反白 */
+  button {
+    user-select: none;
+  }
 }
 
 /* ============ 共用元件樣式 ============ */
@@ -261,4 +266,17 @@
 }
 .md-body input[type='checkbox'] {
   margin-right: 0.4em;
+}
+
+/* ============ 減少動態 ============ */
+/* 轉圈圖示代表真的有工作在進行，不能直接停掉；開啟「減少動態」時改成不位移的明暗變化 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: reduced-spin 2s ease-in-out infinite;
+  }
+}
+@keyframes reduced-spin {
+  50% {
+    opacity: 0.35;
+  }
 }
