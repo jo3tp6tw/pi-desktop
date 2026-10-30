@@ -27,7 +27,8 @@ import {
   Monitor,
   Server,
 } from 'lucide-react';
-import type { Message, SubagentTask, ToolCall } from '../types';
+import type { Message, SubagentTask, ThinkingLevel, ToolCall } from '../types';
+import { ModelPicker } from './ModelPicker';
 import { SubagentCard } from './SubagentCard';
 import { Markdown } from './Markdown';
 import { DiffToolCard, isFileEditTool } from './DiffToolCard';
@@ -51,6 +52,9 @@ interface ChatAreaProps {
   activeProfileId?: string;
   onSelectProfile?: (profileId: string) => void;
   onOpenModelSettings?: () => void;
+  /** 目前模型支援的思考等級 */
+  thinkingLevels?: ThinkingLevel[];
+  onSelectThinking?: (level: ThinkingLevel) => void;
   /** 單一使用者訊息粒度操作回呼 */
   onCopyMessage?: (text: string) => void;
   onSwitchBranch?: (message: Message, targetLeafId: string) => void;
@@ -694,9 +698,11 @@ interface ChatInputProps {
   isLoading: boolean;
   onSendMessage: (text: string) => void;
   onStop: () => void;
+  /** 輸入框左下角的工具列（模型 / 思考強度切換） */
+  toolbar?: React.ReactNode;
 }
 
-const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop }) => {
+const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop, toolbar }) => {
   const [inputText, setInputText] = useState('');
 
   const submit = useCallback(() => {
@@ -725,8 +731,10 @@ const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop
             onKeyDown={handleKeyDown}
             placeholder="輸入問題或指令給 Pi Agent (Shift+Enter 換行，Enter 送出)..."
             rows={3}
-            className="w-full bg-transparent p-3 pb-9 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none font-sans"
+            className="w-full bg-transparent p-3 pb-11 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none font-sans"
           />
+
+          {toolbar && <div className="absolute bottom-2 left-2">{toolbar}</div>}
 
           {/* 輸入框底部的按鈕 */}
           <div className="absolute bottom-2.5 right-3 flex items-center space-x-2">
@@ -775,6 +783,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   activeProfileId,
   onSelectProfile,
   onOpenModelSettings,
+  thinkingLevels = ['off'],
+  onSelectThinking,
   onCopyMessage,
   onSwitchBranch,
   onEditAndResend,
@@ -786,17 +796,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  // 模型設定檔切換選單
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const profileMenuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!profileMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (!profileMenuRef.current?.contains(e.target as Node)) setProfileMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [profileMenuOpen]);
   // 使用者是否貼齊底部（決定是否自動跟隨新內容）
   const stickToBottomRef = useRef(true);
 
@@ -864,75 +863,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         </div>
 
         <div className="flex items-center space-x-3 text-sm">
-          {/* 模型設定檔切換：列出此環境已啟用的設定檔 */}
-          <div className="relative" ref={profileMenuRef}>
-            <button
-              onClick={() => setProfileMenuOpen((v) => !v)}
-              title={`切換「${envLabel || '本機'}」的模型設定檔`}
-              className={`flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 border text-zinc-200 transition text-xs font-medium group shadow-sm ${
-                envLabel ? 'border-cyan-600/50' : 'border-zinc-700/60'
-              }`}
-            >
-              <Cpu size={13} className={`${envLabel ? 'text-cyan-400 group-hover:text-cyan-300' : 'text-indigo-400 group-hover:text-indigo-300'} transition`} />
-              <span className="font-mono text-zinc-300 truncate max-w-[180px]">
-                {modelInfo || '模型載入中'}
-              </span>
-              {thinkingLevel && thinkingLevel !== 'off' && (
-                <span className="flex items-center space-x-1 text-[11px] px-1.5 py-0.2 rounded bg-indigo-950/80 border border-indigo-800/60 text-indigo-300 font-mono">
-                  <Brain size={11} className="text-indigo-400" />
-                  <span>{thinkingLevel}</span>
-                </span>
-              )}
-              <ChevronDown size={12} className="text-zinc-400 group-hover:text-zinc-200 transition ml-0.5" />
-            </button>
-
-            {profileMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-72 z-30 rounded-xl border border-zinc-700/80 bg-[#1c1c20] shadow-2xl py-1.5 text-xs">
-                <div className="px-3 py-1 text-[11px] text-zinc-500">
-                  「{envLabel || '本機'}」的模型設定檔
-                </div>
-                {profiles.length === 0 && (
-                  <div className="px-3 py-2 text-zinc-400">此環境還沒有啟用任何設定檔</div>
-                )}
-                {profiles.map((p) => {
-                  const active = p.id === activeProfileId;
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => {
-                        setProfileMenuOpen(false);
-                        if (!active) onSelectProfile?.(p.id);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 flex items-start gap-2 hover:bg-zinc-800/80 transition ${active ? 'text-zinc-100' : 'text-zinc-300'}`}
-                    >
-                      <Check size={13} className={`mt-0.5 shrink-0 ${active ? 'text-indigo-400' : 'opacity-0'}`} />
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-1.5">
-                          <span className="truncate font-medium">{p.name}</span>
-                          {p.isDefault && <span className="text-[10px] text-amber-300/90">預設</span>}
-                        </span>
-                        <span className="block truncate text-[11px] text-zinc-500 font-mono">{p.subtitle}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-                <div className="border-t border-zinc-800 mt-1.5 pt-1.5">
-                  <button
-                    onClick={() => {
-                      setProfileMenuOpen(false);
-                      onOpenModelSettings?.();
-                    }}
-                    className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-zinc-300 hover:bg-zinc-800/80 transition"
-                  >
-                    <Sliders size={13} className="text-zinc-400" />
-                    <span>管理模型設定檔…</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center space-x-1.5 pl-2 border-l border-zinc-800 text-zinc-400">
+          <div className="flex items-center space-x-1.5 text-zinc-400">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="text-xs font-mono">Active</span>
           </div>
@@ -1005,6 +936,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         isLoading={isLoading}
         onSendMessage={onSendMessage}
         onStop={onStop}
+        toolbar={
+          <ModelPicker
+            modelInfo={modelInfo}
+            envLabel={envLabel}
+            profiles={profiles}
+            activeProfileId={activeProfileId}
+            onSelectProfile={onSelectProfile}
+            onOpenModelSettings={onOpenModelSettings}
+            thinkingLevel={thinkingLevel}
+            thinkingLevels={thinkingLevels}
+            onSelectThinking={onSelectThinking}
+          />
+        }
       />
     </div>
   );

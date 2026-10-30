@@ -99,7 +99,7 @@ class PiProcess {
     this.process.on('close', (code) => {
       const intentional = this.disposed;
       console.log(`[PiProcess:${this.convId}] 已退出，Exit Code: ${code}`);
-      this.bridge.sendToRenderer('pi:status', { convId: this.convId, running: false, code });
+      this.bridge.sendToRenderer('pi:status', { convId: this.convId, running: false, code, intentional });
       this.disposed = true;
       this._rejectAll('process closed');
       // 非預期結束才需要讓前端脫離「載入中」
@@ -256,15 +256,8 @@ class PiProcess {
     }, 10000);
     if (res && res.success && res.data) {
       this.model = res.data;
-      this.bridge.sendToRenderer('pi:ready', {
-        convId: this.convId,
-        model: this.model,
-        thinkingLevel: this.thinkingLevel,
-        sessionId: this.sessionId,
-        sessionFile: this.sessionFile,
-        workspace: this.workspace,
-        core: this.bridge.activeCoreInfo,
-      });
+      // pi 換模型時會把思考等級夾到新模型支援的範圍，重新取狀態讓前端同步（applyState 會發 pi:ready）
+      await this.refreshState();
     }
     return res;
   }
@@ -275,16 +268,8 @@ class PiProcess {
       level,
     }, 10000);
     if (res && res.success) {
-      this.thinkingLevel = level;
-      this.bridge.sendToRenderer('pi:ready', {
-        convId: this.convId,
-        model: this.model,
-        thinkingLevel: this.thinkingLevel,
-        sessionId: this.sessionId,
-        sessionFile: this.sessionFile,
-        workspace: this.workspace,
-        core: this.bridge.activeCoreInfo,
-      });
+      // pi 會依模型夾住不支援的等級，以 get_state 回報的實際值為準
+      await this.refreshState();
     }
     return res;
   }
@@ -395,16 +380,18 @@ class PiBridge {
     const proc = new PiProcess(this, convId, cwd || this.currentWorkspace, { sessionFile, ssh });
     this.processes.set(convId, proc);
     proc.start();
-    // 程序重生後，重新套用此對話先前選用的模型設定檔
+    // 程序重生後，重新套用此對話先前選用的模型設定檔與思考等級
     const sel = this.convModelSelections.get(convId);
     if (sel) {
       proc.ready = proc.ready.then(async () => {
         if (proc.disposed) return;
-        const res = await proc.setModel(sel.provider, sel.modelId);
-        if (!res || res.success === false) {
-          // 設定檔已停用或不存在：改用環境預設
-          this.convModelSelections.delete(convId);
-          return;
+        if (sel.provider) {
+          const res = await proc.setModel(sel.provider, sel.modelId);
+          if (!res || res.success === false) {
+            // 設定檔已停用或不存在：模型改用環境預設，思考等級仍保留
+            if (sel.thinkingLevel) this.convModelSelections.set(convId, { thinkingLevel: sel.thinkingLevel });
+            else this.convModelSelections.delete(convId);
+          }
         }
         if (sel.thinkingLevel) await proc.setThinkingLevel(sel.thinkingLevel);
       });
@@ -412,20 +399,34 @@ class PiBridge {
     return proc;
   }
 
-  // 對話切換到某個模型設定檔（provider 為 models.json 中的 pui-* 供應商）
+  // 對話切換到某個模型設定檔（provider 為 models.json 中的 pui-* 供應商）。
+  // 設定檔有預設思考等級就套用，沒有則沿用此對話目前選的等級。
   async selectModelForConv(convId, { provider, modelId, thinkingLevel }) {
+    const level = thinkingLevel || this.convModelSelections.get(convId)?.thinkingLevel;
     const proc = this.processes.get(convId);
     if (!proc || proc.disposed) {
       // 程序尚未啟動：先記下，啟動時套用
-      this.convModelSelections.set(convId, { provider, modelId, thinkingLevel });
+      this.convModelSelections.set(convId, { provider, modelId, thinkingLevel: level });
       return { success: true, deferred: true };
     }
     await proc.ready;
     const res = await proc.setModel(provider, modelId);
     if (!res || res.success === false) return { success: false, error: res?.error || '切換模型失敗' };
-    this.convModelSelections.set(convId, { provider, modelId, thinkingLevel });
-    if (thinkingLevel) await proc.setThinkingLevel(thinkingLevel);
+    this.convModelSelections.set(convId, { provider, modelId, thinkingLevel: level });
+    if (level) await proc.setThinkingLevel(level);
     return { success: true };
+  }
+
+  // 對話切換思考等級（記下以便程序重生後重新套用）
+  async setThinkingForConv(convId, level) {
+    const sel = this.convModelSelections.get(convId) || {};
+    this.convModelSelections.set(convId, { ...sel, thinkingLevel: level });
+    const proc = this.processes.get(convId);
+    if (!proc || proc.disposed) return { success: true, deferred: true };
+    await proc.ready;
+    const res = await proc.setThinkingLevel(level);
+    if (!res || res.success === false) return { success: false, error: res?.error || '切換思考等級失敗' };
+    return { success: true, level: proc.thinkingLevel };
   }
 
   // 模型設定變更後重啟某環境的對話程序（pi 執行中不會重讀 models.json）。

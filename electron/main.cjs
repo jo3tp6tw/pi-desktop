@@ -789,6 +789,11 @@ ipcMain.handle('profile:select-for-conv', async (event, { convId, profileId }) =
   });
 });
 
+ipcMain.handle('pi:set-thinking-level', async (event, { convId, level }) => {
+  if (!piBridge) return { success: false, error: 'Bridge not ready' };
+  return piBridge.setThinkingForConv(convId, level);
+});
+
 ipcMain.handle('model:set-runtime', async (event, { convId, provider, modelId, thinkingLevel }) => {
   if (!piBridge) return { success: false, error: 'Bridge not ready' };
   try {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { RightPanel, RightPanelTab } from './components/RightPanel';
@@ -11,7 +11,7 @@ import {
   Play, Pencil, CopyPlus, Download, FileCode, FileJson, Clipboard as ClipboardIcon,
   Trash2, FolderOpen, Plus, RefreshCw, FolderPlus, ChevronsUpDown, AlertTriangle, Server,
 } from 'lucide-react';
-import type { Project, Session, Message, FileItem, SubagentTask, ToolCall, CoreInfo, BashCommand, SessionLog, SshConfig, ProfileState } from './types';
+import type { Project, Session, Message, FileItem, SubagentTask, ToolCall, CoreInfo, BashCommand, SessionLog, SshConfig, ProfileState, ThinkingLevel } from './types';
 import {
   appendAssistantDelta,
   appendToolPart,
@@ -20,7 +20,7 @@ import {
   updateSubagentPart,
 } from './lib/messageParts';
 import { envOf } from './lib/environment';
-import { providerLabel } from './lib/modelProfiles';
+import { providerLabel, supportedThinkingLevels } from './lib/modelProfiles';
 
 // 從 Pi 的 partialResult / result 取出純文字（content 為 text block 陣列）
 const textFromResult = (r: any): string | undefined => {
@@ -45,6 +45,7 @@ const uuid = () =>
 // 穩定的空陣列參考，避免每次 render 產生新陣列
 const EMPTY_MESSAGES: Message[] = [];
 const EMPTY_BASH: BashCommand[] = [];
+const NO_THINKING: ThinkingLevel[] = ['off'];
 
 // 預設工作區（在真實專案載入前，或純網頁預覽模式使用）
 const DEFAULT_PROJECT: Project = {
@@ -168,6 +169,9 @@ export const App: React.FC = () => {
   const [thinkingByConv, setThinkingByConv] = useState<Record<string, string>>({});
   const modelInfo = modelByConv[activeConvId] || '連接中...';
   const thinkingLevel = thinkingByConv[activeConvId] || 'medium';
+  // 目前模型支援的思考等級（依 pi 回報的模型定義，各供應商的實際參數由 pi 對應）
+  const [thinkingLevelsByConv, setThinkingLevelsByConv] = useState<Record<string, ThinkingLevel[]>>({});
+  const thinkingLevels = thinkingLevelsByConv[activeConvId] || NO_THINKING;
   // 對話目前使用的 pi 供應商（設定檔為 pui-<id>），用來標示對話正在用哪個設定檔
   const [providerByConv, setProviderByConv] = useState<Record<string, string>>({});
   const [profileState, setProfileState] = useState<ProfileState>({ profiles: [], envs: {} });
@@ -357,6 +361,14 @@ export const App: React.FC = () => {
     ipcRenderer.on('core:info', handleCoreInfo);
 
     // Pi 就緒事件（每個對話都會回報自己的狀態）
+    // pi 程序非預期結束（啟動失敗、SSH 斷線等）：別讓模型一直停在「連接中」
+    ipcRenderer.on('pi:status', (_event: any, data: any) => {
+      const convId = data?.convId as string;
+      if (!convId || data.running || data.intentional) return;
+      setModelByConv(prev => ({ ...prev, [convId]: '連線失敗' }));
+      pushSessionLog(`[Pi Exit] ${convId} | ${data.error || `exit code ${data.code}`}`);
+    });
+
     ipcRenderer.on('pi:ready', (_event: any, data: any) => {
       console.log('Pi Ready:', data);
       const convId = data.convId as string;
@@ -370,6 +382,7 @@ export const App: React.FC = () => {
       if (convId) {
         setModelByConv(prev => ({ ...prev, [convId]: modelName }));
         if (data.thinkingLevel) setThinkingByConv(prev => ({ ...prev, [convId]: data.thinkingLevel }));
+        if (data.model) setThinkingLevelsByConv(prev => ({ ...prev, [convId]: supportedThinkingLevels(data.model) }));
         const provider = data.model?.provider;
         if (provider) setProviderByConv(prev => ({ ...prev, [convId]: provider }));
       }
@@ -581,6 +594,7 @@ export const App: React.FC = () => {
     return () => {
       ipcRenderer?.removeListener('core:info', handleCoreInfo);
       ipcRenderer?.removeAllListeners('pi:ready');
+      ipcRenderer?.removeAllListeners('pi:status');
       ipcRenderer?.removeAllListeners('pi:event');
     };
   }, []);
@@ -686,6 +700,13 @@ export const App: React.FC = () => {
     if (project) {
       setCurrentProject(project);
       loadWorkspaceFiles(project.path, project.ssh || null);
+    }
+
+    // 在背景為此對話啟動 pi，才能顯示目前模型 / 思考等級並切換（閒置後會自動回收）
+    if (ipcRenderer && session.filePath) {
+      ipcRenderer
+        .invoke('pi:ensure-session', { convId, cwd: project?.path || currentProjectRef.current.path, sessionFile: session.filePath, ssh })
+        .catch((e: any) => console.error('啟動對話程序失敗:', e));
     }
 
     // 已有記憶體中的訊息（例如背景正在串流）→ 直接顯示，不要蓋掉最新內容
@@ -1144,7 +1165,8 @@ export const App: React.FC = () => {
   // 目前對話所在環境已啟用的模型設定檔（對話頂端可切換）
   const currentEnv = envOf(currentProject.ssh);
   const envSelection = profileState.envs[currentEnv.key];
-  const envProfiles = (envSelection?.enabled || [])
+  // 只列出此環境勾選啟用的設定檔；memo 讓輸入框的模型選擇器在串流時不必重繪
+  const envProfiles = useMemo(() => (envSelection?.enabled || [])
     .map(id => profileState.profiles.find(p => p.id === id))
     .filter((p): p is NonNullable<typeof p> => !!p)
     .map(p => ({
@@ -1152,11 +1174,11 @@ export const App: React.FC = () => {
       name: p.name,
       subtitle: `${p.kind === 'openai-compatible' ? 'OpenAI Compatible' : providerLabel(p.provider)} · ${p.modelId}`,
       isDefault: envSelection?.defaultId === p.id,
-    }));
+    })), [envSelection, profileState.profiles]);
   const activeProvider = providerByConv[activeConvId] || '';
   const activeProfileId = activeProvider.startsWith('pui-') ? activeProvider.slice(4) : undefined;
 
-  const handleSelectProfile = async (profileId: string) => {
+  const handleSelectProfile = useCallback(async (profileId: string) => {
     if (!ipcRenderer) return;
     if (!activeConvId) {
       showToast('請先開始一個對話');
@@ -1165,7 +1187,26 @@ export const App: React.FC = () => {
     const res = await ipcRenderer.invoke('profile:select-for-conv', { convId: activeConvId, profileId });
     if (!res?.success) showToast(`切換失敗：${res?.error || '未知錯誤'}`);
     else if (res.deferred) showToast('會在對話啟動時套用此設定檔');
-  };
+  }, [activeConvId]);
+
+  const handleSelectThinking = useCallback(async (level: ThinkingLevel) => {
+    if (!ipcRenderer) return;
+    if (!activeConvId) {
+      showToast('請先開始一個對話');
+      return;
+    }
+    const convId = activeConvId;
+    const prevLevel = thinkingByConv[convId];
+    // 先更新畫面；pi 回報實際值（可能被夾住）時會再以 pi:ready 校正
+    setThinkingByConv(prev => ({ ...prev, [convId]: level }));
+    const res = await ipcRenderer.invoke('pi:set-thinking-level', { convId, level });
+    if (!res?.success) {
+      setThinkingByConv(prev => ({ ...prev, [convId]: prevLevel }));
+      showToast(`切換思考強度失敗：${res?.error || '未知錯誤'}`);
+    }
+  }, [activeConvId, thinkingByConv]);
+
+  const openModelSettings = useCallback(() => setIsModelSettingsOpen(true), []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#121214]">
@@ -1211,7 +1252,9 @@ export const App: React.FC = () => {
         profiles={envProfiles}
         activeProfileId={activeProfileId}
         onSelectProfile={handleSelectProfile}
-        onOpenModelSettings={() => setIsModelSettingsOpen(true)}
+        onOpenModelSettings={openModelSettings}
+        thinkingLevels={thinkingLevels}
+        onSelectThinking={handleSelectThinking}
         onCopyMessage={handleCopyMessage}
         onSwitchBranch={handleSwitchBranch}
         onEditAndResend={handleEditAndResend}

@@ -230,10 +230,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
     });
   };
 
+  // 目錄讀取請求序號：只採用最後一次請求的結果，避免切換環境時較慢的舊請求（例如 SSH）晚到覆蓋新目錄
+  const dirRequestSeqRef = useRef(0);
+
   // 讀取指定目錄（支援本機與 SSH 遠端）
   const loadDirectory = useCallback(
     async (targetPath: string) => {
       if (!ipcRenderer) return;
+      const seq = ++dirRequestSeqRef.current;
       setDirLoading(true);
       setDirError(null);
       try {
@@ -241,6 +245,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
           'fs:read-directory',
           ssh ? { dirPath: targetPath, ssh } : targetPath
         );
+        if (seq !== dirRequestSeqRef.current) return;
 
         if (Array.isArray(res)) {
           setCurrentDir(targetPath);
@@ -258,30 +263,42 @@ export const FileTree: React.FC<FileTreeProps> = ({
           setItems(Array.isArray(res.items) ? res.items : []);
         }
       } catch (e: any) {
+        if (seq !== dirRequestSeqRef.current) return;
         setDirError(e?.message || '讀取目錄失敗');
       } finally {
-        setDirLoading(false);
+        if (seq === dirRequestSeqRef.current) setDirLoading(false);
       }
     },
     [ssh]
   );
+  const loadDirectoryRef = useRef(loadDirectory);
+  loadDirectoryRef.current = loadDirectory;
 
   // 當切換工作區或 SSH 主機時，重設目錄至新的工作區根目錄並關閉開啟中的檔案
+  const envGenRef = useRef(0);
   useEffect(() => {
+    envGenRef.current += 1;
     setActiveFile(null);
+    setFileLoading(false);
     setFileError(null);
     setCreatingItem(null);
     setCurrentDir(currentWorkspace);
     setPathInput(currentWorkspace);
-    loadDirectory(currentWorkspace);
-  }, [currentWorkspace, ssh?.id, loadDirectory]);
+    setParentDir(null);
+    setItems([]);
+    // 立即同步 ref，避免同一輪 render 的重整 effect 拿舊環境的目錄去讀
+    currentDirRef.current = currentWorkspace;
+    loadDirectoryRef.current(currentWorkspace);
+  }, [currentWorkspace, ssh?.id]);
 
-  // 當外部（例如 Pi 工具執行完畢）觸發重整時，刷新目前所在的目錄
+  // 當外部（例如 Pi 工具執行完畢）觸發重整時，刷新目前所在的目錄。
+  // 只依賴 refreshTrigger：若依賴 loadDirectory，切換 SSH 時會用舊環境的路徑再讀一次而蓋掉正確結果。
+  const lastRefreshTriggerRef = useRef(refreshTrigger);
   useEffect(() => {
-    if (refreshTrigger > 0) {
-      loadDirectory(currentDirRef.current);
-    }
-  }, [refreshTrigger, loadDirectory]);
+    if (refreshTrigger === lastRefreshTriggerRef.current) return;
+    lastRefreshTriggerRef.current = refreshTrigger;
+    loadDirectoryRef.current(currentDirRef.current);
+  }, [refreshTrigger]);
 
   // 開啟檔案（滿版切換）
   const openFile = useCallback(
@@ -300,11 +317,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
         size: 0,
       });
 
+      const envGen = envGenRef.current;
       try {
         const res: FileReadResult = await ipcRenderer.invoke(
           'fs:read-file',
           ssh ? { filePath, ssh } : filePath
         );
+        // 讀檔期間已切換環境：丟棄結果
+        if (envGen !== envGenRef.current) return;
         if (!res || !res.success) {
           setFileError(res?.error || '無法讀取檔案');
           return;
@@ -320,17 +340,22 @@ export const FileTree: React.FC<FileTreeProps> = ({
           setViewMode('code');
         }
       } catch (e: any) {
+        if (envGen !== envGenRef.current) return;
         setFileError(e?.message || '讀取檔案失敗');
       } finally {
-        setFileLoading(false);
+        if (envGen === envGenRef.current) setFileLoading(false);
       }
     },
     [ssh]
   );
 
   // 解析來自對話區點擊的相對/絕對路徑，並在右側開啟檔案或切換至該目錄
+  const handledRevealNonceRef = useRef<number | null>(null);
   useEffect(() => {
     if (!revealRequest || !revealRequest.path || !ipcRenderer) return;
+    // 同一個請求只處理一次；切換環境時本 effect 會因依賴改變重跑，不可把舊路徑套到新環境
+    if (handledRevealNonceRef.current === revealRequest.nonce) return;
+    handledRevealNonceRef.current = revealRequest.nonce;
 
     const raw = revealRequest.path
       .trim()
