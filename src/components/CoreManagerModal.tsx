@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { 
   Cpu, 
   RefreshCw, 
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { CoreInfo, CheckUpdateResult } from '../types';
 import { ipcRenderer } from '../lib/ipc';
+import { Modal, ConfirmModal } from './Modal';
 
 interface CoreManagerModalProps {
   isOpen: boolean;
@@ -31,7 +32,9 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
   const [updateResult, setUpdateResult] = useState<CheckUpdateResult | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateLogs, setUpdateLogs] = useState<string[]>([]);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const titleId = useId();
 
   useEffect(() => {
     if (!ipcRenderer) return;
@@ -50,19 +53,19 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
 
   const handleCheckUpdate = async () => {
     if (!ipcRenderer) {
-      setStatusMessage('Updates are unavailable in browser preview');
+      setStatus({ text: 'Updates are unavailable in browser preview', error: true });
       return;
     }
     setChecking(true);
-    setStatusMessage(null);
+    setStatus(null);
     try {
       const res: CheckUpdateResult = await ipcRenderer.invoke('core:check-update');
       setUpdateResult(res);
       if (!res.hasUpdate) {
-        setStatusMessage('Already up to date');
+        setStatus({ text: 'Already up to date' });
       }
     } catch (e: any) {
-      setStatusMessage(`Check failed: ${e.message}`);
+      setStatus({ text: `Check failed: ${e.message}`, error: true });
     } finally {
       setChecking(false);
     }
@@ -72,34 +75,33 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
     if (!ipcRenderer || !updateResult?.latestVersion) return;
     setIsUpdating(true);
     setUpdateLogs([`Installing @earendil-works/pi-coding-agent@${updateResult.latestVersion}…`]);
-    setStatusMessage(null);
+    setStatus(null);
 
     try {
       const res = await ipcRenderer.invoke('core:do-update', updateResult.latestVersion);
       if (res.success) {
-        setStatusMessage(`Updated to v${res.updatedVersion}`);
+        setStatus({ text: `Updated to v${res.updatedVersion}` });
         await ipcRenderer.invoke('core:restart');
         if (onCoreReload) onCoreReload();
       } else {
-        setStatusMessage(`Update failed: ${res.error}`);
+        setStatus({ text: `Update failed: ${res.error}`, error: true });
       }
     } catch (e: any) {
-      setStatusMessage(`Update failed: ${e.message}`);
+      setStatus({ text: `Update failed: ${e.message}`, error: true });
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleResetBundled = async () => {
+    setConfirmReset(false);
     if (!ipcRenderer) return;
-    if (!confirm('Remove downloaded updates and revert to the bundled version?')) return;
-
     try {
       await ipcRenderer.invoke('core:reset-bundled');
-      setStatusMessage('Reverted to the bundled version');
+      setStatus({ text: 'Reverted to the bundled version' });
       if (onCoreReload) onCoreReload();
     } catch (e: any) {
-      setStatusMessage(`Revert failed: ${e.message}`);
+      setStatus({ text: `Revert failed: ${e.message}`, error: true });
     }
   };
 
@@ -107,10 +109,10 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
     if (!ipcRenderer) return;
     try {
       await ipcRenderer.invoke('core:restart');
-      setStatusMessage('Core restarted');
+      setStatus({ text: 'Core restarted' });
       if (onCoreReload) onCoreReload();
     } catch (e: any) {
-      setStatusMessage(`Restart failed: ${e.message}`);
+      setStatus({ text: `Restart failed: ${e.message}`, error: true });
     }
   };
 
@@ -140,9 +142,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-surface border border-zinc-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
-        
+    <Modal open onClose={onClose} aria-labelledby={titleId} className="max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3.5 border-b border-zinc-800/80 bg-zinc-900/50">
           <div className="flex items-center gap-2.5">
@@ -150,13 +150,10 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
               <Cpu className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-zinc-100">Pi core</h2>
+              <h2 id={titleId} className="text-sm font-semibold text-zinc-100">Pi core</h2>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition"
-          >
+          <button onClick={onClose} aria-label="Close" className="icon-btn">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -205,7 +202,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
 
             {coreInfo?.type === 'user' && (
               <button
-                onClick={handleResetBundled}
+                onClick={() => setConfirmReset(true)}
                 disabled={isUpdating}
                 title="Revert to bundled version"
                 className="px-3 py-2 rounded-lg bg-danger/10 hover:bg-danger/20 border border-danger/30 text-danger transition"
@@ -216,10 +213,15 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
           </div>
 
           {/* Status Alert */}
-          {statusMessage && (
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-primary">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>{statusMessage}</span>
+          {status && (
+            <div
+              role={status.error ? 'alert' : 'status'}
+              className={`flex items-start gap-2 p-2.5 rounded-lg border ${
+                status.error ? 'bg-danger/10 border-danger/30 text-danger' : 'bg-success/10 border-success/30 text-success'
+              }`}
+            >
+              {status.error ? <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /> : <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />}
+              <span className="select-text break-words">{status.text}</span>
             </div>
           )}
 
@@ -259,7 +261,16 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
           )}
 
         </div>
-      </div>
-    </div>
+
+      <ConfirmModal
+        open={confirmReset}
+        title="Revert to bundled version"
+        confirmLabel="Revert"
+        onConfirm={handleResetBundled}
+        onClose={() => setConfirmReset(false)}
+      >
+        Remove downloaded updates and revert to the bundled version?
+      </ConfirmModal>
+    </Modal>
   );
 };

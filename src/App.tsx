@@ -7,9 +7,10 @@ import { ModelSettingsModal } from './components/ModelSettingsModal';
 import { SshModal } from './components/SshModal';
 import { ContextMenu, ContextMenuItem } from './components/ContextMenu';
 import { ResizeHandle } from './components/ResizeHandle';
+import { Modal, ConfirmModal } from './components/Modal';
 import {
   Play, Pencil, CopyPlus, Download, FileCode, FileJson, Clipboard as ClipboardIcon,
-  Trash2, FolderOpen, Plus, RefreshCw, FolderPlus, ChevronsUpDown, AlertTriangle, Server,
+  Trash2, FolderOpen, Plus, RefreshCw, FolderPlus, ChevronsUpDown, Server,
   AlertCircle, Copy, X,
 } from 'lucide-react';
 import type { Project, Session, Message, FileItem, SubagentTask, ToolCall, CoreInfo, BashCommand, SessionLog, SshConfig, ProfileState, ThinkingLevel, ConnectionState } from './types';
@@ -1400,82 +1401,54 @@ export const App: React.FC = () => {
       )}
 
       {/* 6. 重新命名彈窗 */}
-      {renameTarget && (
-        <div
-          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60"
-          onMouseDown={() => setRenameTarget(null)}
+      <Modal
+        open={!!renameTarget}
+        onClose={() => setRenameTarget(null)}
+        closeOnBackdrop
+        aria-labelledby="rename-conversation-title"
+        className="max-w-[420px] p-5"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            confirmRename();
+          }}
         >
-          <div
-            className="w-[420px] rounded-xl border border-line-strong bg-overlay p-5 shadow-2xl"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-semibold text-zinc-100 mb-3 flex items-center gap-2">
-              <Pencil size={15} /> Rename conversation
-            </h3>
-            <input
-              autoFocus
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') confirmRename();
-                if (e.key === 'Escape') setRenameTarget(null);
-              }}
-              className="field"
-              placeholder="Conversation name"
-            />
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setRenameTarget(null)}
-                className="btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmRename}
-                className="btn-primary"
-              >
-                Save
-              </button>
-            </div>
+          <h2 id="rename-conversation-title" className="text-sm font-semibold text-fg-strong mb-3 flex items-center gap-2">
+            <Pencil size={15} /> Rename conversation
+          </h2>
+          <input
+            data-autofocus
+            aria-labelledby="rename-conversation-title"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()}
+            className="field"
+            placeholder="Conversation name"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => setRenameTarget(null)} className="btn-ghost">
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary">
+              Save
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
 
       {/* 7. 刪除確認彈窗 */}
-      {deleteTarget && (
-        <div
-          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60"
-          onMouseDown={() => setDeleteTarget(null)}
-        >
-          <div
-            className="w-[420px] rounded-xl border border-line-strong bg-overlay p-5 shadow-2xl"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-2">
-              <AlertTriangle size={15} /> Delete conversation
-            </h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Delete “<span className="text-zinc-200">{deleteTarget.title}</span>”?
-              <br />
-              It will be moved to the Recycle Bin.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="btn-danger"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete conversation"
+        confirmLabel="Delete"
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      >
+        Delete “<span className="text-fg-strong">{deleteTarget?.title}</span>”?
+        <br />
+        It will be moved to the Recycle Bin.
+      </ConfirmModal>
 
       {/* 8. 提示：成功訊息自動消失（polite）；錯誤保留全文直到關閉（alert） */}
       <div aria-live="polite" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1200] max-w-[min(640px,80vw)]">

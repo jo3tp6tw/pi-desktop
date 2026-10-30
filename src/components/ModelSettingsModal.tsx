@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useId, useRef } from 'react';
 import { ipcRenderer } from '../lib/ipc';
 import {
   Cpu,
@@ -27,6 +27,7 @@ import type {
   SamplingParams,
 } from '../types';
 import { LOCAL_ENV, type PiEnvironment } from '../lib/environment';
+import { Modal } from './Modal';
 import {
   COMPAT_DEFAULTS,
   effectiveSpec,
@@ -89,6 +90,21 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<Status>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const titleId = useId();
+  // 回到列表時要聚焦的按鈕（開啟表單的那一個；表單卸載後焦點不會自己回來）
+  const returnFocusRef = useRef<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editing || !returnFocusRef.current) return;
+    listRef.current?.querySelector<HTMLElement>(`[data-return-focus="${returnFocusRef.current}"]`)?.focus();
+    returnFocusRef.current = null;
+  }, [editing]);
+
+  const openEditor = (profile: ModelProfile, returnKey: string) => {
+    returnFocusRef.current = returnKey;
+    setEditing(profile);
+  };
 
   const envLabel = (key: string) => environments.find((e) => e.key === key)?.label || key;
   const envSel = state.envs[envKey] || { enabled: [], defaultId: null };
@@ -199,8 +215,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-surface border border-zinc-700/80 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+    <Modal open onClose={onClose} aria-labelledby={titleId} className="max-w-3xl">
         {/* 頂部標題 */}
         <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/60">
           <div className="flex items-center space-x-2.5">
@@ -219,7 +234,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
               </div>
             )}
             <div>
-              <h2 className="text-base font-semibold text-zinc-100">
+              <h2 id={titleId} className="text-base font-semibold text-zinc-100">
                 {editing ? (editing.id ? `Edit ${editing.name}` : 'New model profile') : 'Model profiles'}
               </h2>
               {editing && (
@@ -229,10 +244,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
               )}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition"
-          >
+          <button onClick={onClose} aria-label="Close" className="icon-btn p-1.5">
             <X size={17} />
           </button>
         </div>
@@ -277,6 +289,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                       setStatus(null);
                     }}
                     disabled={busy}
+                    aria-pressed={selected}
                     className={`shrink-0 flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
                       selected
                         ? isRemote
@@ -305,7 +318,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
             </div>
 
             {/* 設定檔列表 */}
-            <div className="flex-1 overflow-y-auto">
+            <div ref={listRef} className="flex-1 overflow-y-auto">
               {state.profiles.length === 0 && (
                 <div className="px-6 py-10 text-center text-sm text-zinc-400">
                   <p className="text-zinc-200 font-medium">No model profiles yet</p>
@@ -339,6 +352,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                       disabled={busy}
                       onChange={() => toggleEnabled(p.id)}
                       title={enabled ? `Disable on ${envLabel(envKey)}` : `Enable on ${envLabel(envKey)}`}
+                      aria-label={`Use ${p.name} on ${envLabel(envKey)}`}
                       className="rounded border-zinc-700 bg-zinc-900 accent-primary-solid focus:ring-0 focus:ring-offset-0 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
@@ -378,7 +392,8 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                         </button>
                       )}
                       <button
-                        onClick={() => setEditing({ ...p })}
+                        onClick={() => openEditor({ ...p }, `edit-${p.id}`)}
+                        data-return-focus={`edit-${p.id}`}
                         disabled={busy}
                         title="Edit"
                         className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
@@ -386,7 +401,8 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                         <Pencil size={14} />
                       </button>
                       <button
-                        onClick={() => setEditing({ ...p, id: '', name: `${p.name} copy` })}
+                        onClick={() => openEditor({ ...p, id: '', name: `${p.name} copy` }, `copy-${p.id}`)}
+                        data-return-focus={`copy-${p.id}`}
                         disabled={busy}
                         title="Duplicate"
                         className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
@@ -395,8 +411,11 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
                       </button>
                       {confirmDeleteId === p.id ? (
                         <button
+                          autoFocus
                           onClick={() => deleteProfile(p.id)}
+                          onBlur={() => setConfirmDeleteId(null)}
                           disabled={busy}
+                          aria-label={`Confirm delete ${p.name}`}
                           className="px-2 py-1 rounded-md text-2xs bg-danger-solid text-white border border-danger/40 hover:brightness-110 transition"
                         >
                           Confirm
@@ -417,9 +436,8 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
               })}
               <div className="px-6 py-3">
                 <button
-                  onClick={() =>
-                    setEditing({ id: '', name: '', kind: 'builtin', modelId: '' })
-                  }
+                  onClick={() => openEditor({ id: '', name: '', kind: 'builtin', modelId: '' }, 'new')}
+                  data-return-focus="new"
                   disabled={busy}
                   className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-zinc-700 text-zinc-300 text-xs hover:bg-zinc-800/60 hover:border-zinc-600 transition"
                 >
@@ -434,8 +452,7 @@ export const ModelSettingsModal: React.FC<ModelSettingsModalProps> = ({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -460,6 +477,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
   const [p, setP] = useState<ModelProfile>(initial);
   const [showKey, setShowKey] = useState(false);
   const [error, setError] = useState('');
+  const id = useId();
 
   const set = (patch: Partial<ModelProfile>) => {
     setP((prev) => ({ ...prev, ...patch }));
@@ -519,16 +537,30 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
   };
 
   const Dot = ({ on }: { on: boolean }) =>
-    on ? <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary ml-1 align-middle" title="Modified" /> : null;
+    on ? (
+      <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary ml-1 align-middle" title="Modified">
+        <span className="sr-only"> (modified)</span>
+      </span>
+    ) : null;
 
   return (
-    <>
+    <div
+      className="flex min-h-0 flex-1 flex-col"
+      onKeyDown={(e) => {
+        // 編輯中按 Esc 回到列表，而不是關閉整個彈窗
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+    >
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 text-sm">
         {/* 基本資料 */}
         <section className="space-y-3">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1 font-medium">Profile name</label>
+            <label htmlFor={`${id}-name`} className="block text-xs text-zinc-400 mb-1 font-medium">Profile name</label>
             <input
+              id={`${id}-name`}
               className={inputCls}
               value={p.name}
               onChange={(e) => set({ name: e.target.value })}
@@ -543,6 +575,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
                 key={k}
                 type="button"
                 onClick={() => set({ kind: k, modelId: '', thinkingLevel: undefined })}
+                aria-pressed={p.kind === k}
                 className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
                   p.kind === k
                     ? 'bg-primary-solid text-white border-primary'
@@ -557,8 +590,9 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
           {isCompat ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="md:col-span-2">
-                <label className="block text-xs text-zinc-400 mb-1 font-medium">Base URL</label>
+                <label htmlFor={`${id}-url`} className="block text-xs text-zinc-400 mb-1 font-medium">Base URL</label>
                 <input
+                  id={`${id}-url`}
                   className={`${inputCls} font-mono`}
                   value={p.baseUrl || ''}
                   onChange={(e) => set({ baseUrl: e.target.value })}
@@ -566,8 +600,9 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs text-zinc-400 mb-1 font-medium">Model ID</label>
+                <label htmlFor={`${id}-model`} className="block text-xs text-zinc-400 mb-1 font-medium">Model ID</label>
                 <input
+                  id={`${id}-model`}
                   className={`${inputCls} font-mono`}
                   value={p.modelId}
                   onChange={(e) => set({ modelId: e.target.value })}
@@ -578,8 +613,8 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-zinc-400 mb-1 font-medium">Provider</label>
-                <select className={inputCls} value={p.provider || ''} onChange={(e) => selectProvider(e.target.value)}>
+                <label htmlFor={`${id}-provider`} className="block text-xs text-zinc-400 mb-1 font-medium">Provider</label>
+                <select id={`${id}-provider`} className={inputCls} value={p.provider || ''} onChange={(e) => selectProvider(e.target.value)}>
                   <option value="" disabled>
                     {catalog ? 'Choose a provider' : 'Loading model catalog…'}
                   </option>
@@ -592,8 +627,9 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
                 </select>
               </div>
               <div>
-                <label className="block text-xs text-zinc-400 mb-1 font-medium">Model</label>
+                <label htmlFor={`${id}-model`} className="block text-xs text-zinc-400 mb-1 font-medium">Model</label>
                 <select
+                  id={`${id}-model`}
                   className={`${inputCls} font-mono`}
                   value={p.modelId}
                   onChange={(e) => set({ modelId: e.target.value, thinkingLevel: undefined })}
@@ -613,9 +649,11 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
           )}
 
           <div>
-            <label className="block text-xs text-zinc-400 mb-1 font-medium">API Key</label>
+            <label htmlFor={`${id}-key`} className="block text-xs text-zinc-400 mb-1 font-medium">API Key</label>
             <div className="relative flex items-center">
               <input
+                id={`${id}-key`}
+                aria-describedby={`${id}-key-hint`}
                 type={showKey ? 'text' : 'password'}
                 className={`${inputCls} font-mono pr-9`}
                 value={p.apiKey || ''}
@@ -625,12 +663,14 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="absolute right-2.5 p-1 text-fg-subtle hover:text-zinc-300"
+                title={showKey ? 'Hide key' : 'Show key'}
+                aria-pressed={showKey}
+                className="icon-btn absolute right-1.5"
               >
                 {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
             </div>
-            <p className="text-2xs text-fg-subtle mt-1">Or use $ENV_VAR, e.g. $DEEPSEEK_API_KEY</p>
+            <p id={`${id}-key-hint`} className="text-2xs text-fg-subtle mt-1">Or use $ENV_VAR, e.g. $DEEPSEEK_API_KEY</p>
           </div>
         </section>
 
@@ -676,10 +716,11 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-zinc-400 mb-1 font-medium">
+              <label htmlFor={`${id}-context`} className="block text-xs text-zinc-400 mb-1 font-medium">
                 Context window<Dot on={p.contextWindow !== undefined} />
               </label>
               <input
+                id={`${id}-context`}
                 type="number"
                 className={`${inputCls} font-mono`}
                 value={p.contextWindow ?? defaults.contextWindow ?? ''}
@@ -687,10 +728,11 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
               />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1 font-medium">
+              <label htmlFor={`${id}-output`} className="block text-xs text-zinc-400 mb-1 font-medium">
                 Max output<Dot on={p.maxTokens !== undefined} />
               </label>
               <input
+                id={`${id}-output`}
                 type="number"
                 className={`${inputCls} font-mono`}
                 value={p.maxTokens ?? defaults.maxTokens ?? ''}
@@ -700,11 +742,11 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
           </div>
 
           <div>
-            <div className="text-xs text-zinc-400 mb-1.5 font-medium">
+            <div id={`${id}-thinking`} className="text-xs text-zinc-400 mb-1.5 font-medium">
               Thinking level<Dot on={p.thinkingLevel !== undefined} />
               <span className="text-fg-subtle font-normal ml-2">Supported: {levels.join(' / ')}</span>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div role="group" aria-labelledby={`${id}-thinking`} className="flex flex-wrap gap-1.5">
               <LevelButton label="Default" selected={!p.thinkingLevel} onClick={() => set({ thinkingLevel: undefined })} />
               {levels.map((lvl) => (
                 <LevelButton
@@ -727,11 +769,12 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
                 ] as const
               ).map(([key, label, hint]) => (
                 <div key={key}>
-                  <label className="block text-xs text-zinc-400 mb-1 font-medium">
+                  <label htmlFor={`${id}-${key}`} className="block text-xs text-zinc-400 mb-1 font-medium">
                     {label}
                     <Dot on={sp[key] !== undefined} />
                   </label>
                   <input
+                    id={`${id}-${key}`}
                     type="number"
                     step={key === 'top_k' ? 1 : 0.05}
                     className={`${inputCls} font-mono`}
@@ -772,7 +815,7 @@ const ProfileEditor: React.FC<ProfileEditorProps> = ({ initial, catalog, busy, o
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
@@ -780,6 +823,7 @@ const LevelButton: React.FC<{ label: string; selected: boolean; onClick: () => v
   <button
     type="button"
     onClick={onClick}
+    aria-pressed={selected}
     className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
       selected
         ? 'bg-primary-solid text-white border-primary'

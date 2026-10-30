@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import {
   Server,
   Folder,
@@ -18,6 +18,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import type { SshConfig, RemoteBrowseResult, DiscoveredRemoteProject } from '../types';
+import { Modal } from './Modal';
 
 interface SshModalProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ export const SshModal: React.FC<SshModalProps> = ({
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolderLoading, setCreatingFolderLoading] = useState(false);
+  const id = useId();
 
   useEffect(() => {
     if (!isOpen || !ipcRenderer) return;
@@ -157,14 +159,7 @@ export const SshModal: React.FC<SshModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[1050] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-      onMouseDown={onClose}
-    >
-      <div
-        className="w-full max-w-2xl rounded-xl border border-line-strong bg-surface text-zinc-200 shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+    <Modal open onClose={onClose} aria-labelledby={`${id}-title`} className="max-w-2xl text-zinc-200">
         {/* 頂部標題列 */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-line bg-surface-2">
           <div className="flex items-center space-x-2.5">
@@ -172,13 +167,10 @@ export const SshModal: React.FC<SshModalProps> = ({
               <Server size={18} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-zinc-100">Add SSH project</h2>
+              <h2 id={`${id}-title`} className="text-base font-semibold text-zinc-100">Add SSH project</h2>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
-          >
+          <button onClick={onClose} aria-label="Close" className="icon-btn p-1.5">
             <X size={18} />
           </button>
         </div>
@@ -215,10 +207,12 @@ export const SshModal: React.FC<SshModalProps> = ({
           <div className="rounded-lg border border-line bg-canvas p-4 space-y-3">
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-9">
-                <label className="block text-xs font-medium text-zinc-400 mb-1">
+                <label htmlFor={`${id}-host`} className="block text-xs font-medium text-zinc-400 mb-1">
                   Host
                 </label>
                 <input
+                  id={`${id}-host`}
+                  data-autofocus
                   type="text"
                   value={host}
                   onChange={(e) => setHost(e.target.value)}
@@ -230,8 +224,9 @@ export const SshModal: React.FC<SshModalProps> = ({
                 />
               </div>
               <div className="col-span-3">
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Port</label>
+                <label htmlFor={`${id}-port`} className="block text-xs font-medium text-zinc-400 mb-1">Port</label>
                 <input
+                  id={`${id}-port`}
                   type="number"
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
@@ -243,11 +238,12 @@ export const SshModal: React.FC<SshModalProps> = ({
 
             <div className="flex items-end gap-3">
               <div className="flex-1">
-                <label className="block text-xs font-medium text-zinc-400 mb-1">
+                <label htmlFor={`${id}-password`} className="block text-xs font-medium text-zinc-400 mb-1">
                   Password <span className="text-fg-subtle font-normal">(optional)</span>
                 </label>
                 <div className="relative">
                   <input
+                    id={`${id}-password`}
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -260,8 +256,9 @@ export const SshModal: React.FC<SshModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-zinc-300"
+                    className="icon-btn absolute right-1.5 top-1/2 -translate-y-1/2"
                     title={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -378,6 +375,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleBrowse(pathInput);
                       }}
+                      aria-label="Remote path"
                       className="field w-auto min-w-0 flex-1 rounded bg-surface px-2.5 py-1 text-xs font-mono"
                       placeholder="/home/user/..."
                     />
@@ -395,6 +393,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                     <button
                       onClick={() => setIsCreatingFolder((v) => !v)}
                       title="New folder"
+                      aria-expanded={isCreatingFolder}
                       className="p-1.5 rounded hover:bg-zinc-800 text-cyan-400 transition"
                     >
                       <FolderPlus size={14} />
@@ -412,8 +411,13 @@ export const SshModal: React.FC<SshModalProps> = ({
                         onChange={(e) => setNewFolderName(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleCreateFolder();
-                          if (e.key === 'Escape') setIsCreatingFolder(false);
+                          if (e.key === 'Escape') {
+                            // 只收起輸入列，不關閉整個彈窗
+                            e.preventDefault();
+                            setIsCreatingFolder(false);
+                          }
                         }}
+                        aria-label="New folder name"
                         placeholder="Folder name"
                         className="field w-auto min-w-0 flex-1 rounded px-2.5 py-1 text-xs font-mono"
                       />
@@ -436,13 +440,13 @@ export const SshModal: React.FC<SshModalProps> = ({
                   {/* 子目錄列表 */}
                   <div className="max-h-56 overflow-y-auto divide-y divide-line">
                     {browseData.parentPath && (
-                      <div
+                      <button
                         onClick={() => handleBrowse(browseData.parentPath!)}
-                        className="px-3 py-2 flex items-center gap-2.5 text-xs text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200 cursor-pointer transition"
+                        className="focus-inset w-full px-3 py-2 flex items-center gap-2.5 text-xs text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200 transition"
                       >
                         <CornerLeftUp size={14} className="text-fg-subtle" />
                         <span className="font-mono">..</span>
-                      </div>
+                      </button>
                     )}
 
                     {(browseData.directories || []).length === 0 ? (
@@ -453,19 +457,19 @@ export const SshModal: React.FC<SshModalProps> = ({
                       browseData.directories!.map((dir) => (
                         <div
                           key={dir.path}
-                          onClick={() => handleBrowse(dir.path)}
-                          className="px-3 py-2 flex items-center justify-between text-xs text-zinc-200 hover:bg-zinc-800/60 cursor-pointer transition group"
+                          className="pr-3 flex items-center justify-between text-xs text-zinc-200 hover:bg-zinc-800/60 transition group"
                         >
-                          <div className="flex items-center gap-2.5 truncate">
+                          <button
+                            onClick={() => handleBrowse(dir.path)}
+                            className="focus-inset min-w-0 flex-1 pl-3 py-2 flex items-center gap-2.5 text-left"
+                          >
                             <Folder size={14} className="text-amber-400/90 shrink-0" />
                             <span className="font-mono truncate">{dir.name}</span>
-                          </div>
+                          </button>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleConfirmOpenPath(dir.path);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/30 text-2xs transition shrink-0"
+                            onClick={() => handleConfirmOpenPath(dir.path)}
+                            aria-label={`Select ${dir.name}`}
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 px-2 py-0.5 rounded bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/30 text-2xs transition shrink-0"
                           >
                             Select
                           </button>
@@ -527,7 +531,6 @@ export const SshModal: React.FC<SshModalProps> = ({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

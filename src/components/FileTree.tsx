@@ -33,11 +33,11 @@ import {
   FilePlus,
   FolderPlus,
   Copy as CopyPathIcon,
-  AlertTriangle,
   X,
 } from 'lucide-react';
 import { Markdown } from './Markdown';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
+import { ConfirmModal } from './Modal';
 import type { MonacoCodeEditorHandle } from './MonacoCodeEditor';
 import type { FileItem, SshConfig, DirectoryReadResult, FileReadResult } from '../types';
 
@@ -911,6 +911,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   setIsEditingPath(false);
                 }
               }}
+              aria-label="Folder path"
               className="field rounded px-2 py-0.5 text-xs font-mono"
               placeholder="Folder path"
             />
@@ -1315,6 +1316,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               else if (e.key === 'Escape') setCreatingItem(null);
             }}
             placeholder={creatingItem.isDirectory ? 'New folder name' : 'New file name'}
+            aria-label={creatingItem.isDirectory ? 'New folder name' : 'New file name'}
             className="field w-auto min-w-0 flex-1 rounded px-2 py-0.5 text-xs font-mono"
           />
         </div>
@@ -1447,6 +1449,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                       <input
                         autoFocus
                         defaultValue={item.name}
+                        aria-label={`Rename ${item.name}`}
                         onFocus={(e) => {
                           const val = e.currentTarget.value;
                           const dotIdx = !item.isDirectory ? val.lastIndexOf('.') : -1;
@@ -1495,52 +1498,27 @@ export const FileTree: React.FC<FileTreeProps> = ({
       )}
 
       {/* 刪除確認彈窗 */}
-      {deleteTargets && deleteTargets.length > 0 && (
-        <div
-          className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60"
-          onMouseDown={() => setDeleteTargets(null)}
-        >
-          <div
-            className="w-[400px] rounded-xl border border-line-strong bg-overlay p-5 shadow-2xl"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-2">
-              <AlertTriangle size={15} /> Delete
-            </h3>
-            <p className="text-sm text-zinc-300 leading-relaxed">
-              {deleteTargets.length === 1 ? (
-                <>
-                  Delete “<span className="font-mono text-zinc-100">{deleteTargets[0].name}</span>”?
-                </>
-              ) : (
-                <>
-                  Delete <span className="tabular-nums text-zinc-100">{deleteTargets.length}</span> selected items?
-                </>
-              )}
-              <br />
-              <span className="text-xs text-fg-subtle">
-                {ssh
-                  ? 'Remote files can’t be restored after deletion.'
-                  : 'Local files are moved to the Recycle Bin.'}
-              </span>
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                onClick={() => setDeleteTargets(null)}
-                className="btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteItems}
-                className="btn-danger"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deleteTargets && deleteTargets.length > 0}
+        title="Delete"
+        confirmLabel="Delete"
+        onConfirm={confirmDeleteItems}
+        onClose={() => setDeleteTargets(null)}
+      >
+        {deleteTargets?.length === 1 ? (
+          <>
+            Delete “<span className="font-mono text-fg-strong">{deleteTargets[0].name}</span>”?
+          </>
+        ) : (
+          <>
+            Delete <span className="tabular-nums text-fg-strong">{deleteTargets?.length}</span> selected items?
+          </>
+        )}
+        <br />
+        <span className="text-xs text-fg-subtle">
+          {ssh ? 'Remote files can’t be restored after deletion.' : 'Local files are moved to the Recycle Bin.'}
+        </span>
+      </ConfirmModal>
 
       {opToastNode}
     </div>

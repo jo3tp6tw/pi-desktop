@@ -467,6 +467,7 @@ const MessageItem = React.memo<MessageItemProps>(({
               }}
               rows={Math.min(8, Math.max(2, editText.split('\n').length))}
               autoFocus
+              aria-label="Edit message"
               className="field rounded-lg bg-zinc-950/70 border-zinc-800 p-2.5 resize-y leading-relaxed"
             />
             <div className="flex items-center justify-end space-x-1">
@@ -597,6 +598,7 @@ const MessageItem = React.memo<MessageItemProps>(({
                 }
               }}
               placeholder="Bookmark name"
+              aria-label="Bookmark name"
               autoFocus
               className="field w-40 rounded bg-zinc-950/80 border-zinc-800 px-2 py-0.5 text-xs"
             />
@@ -772,6 +774,7 @@ const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Message Pi… (Shift+Enter for a new line)"
+            aria-label="Message Pi"
             rows={3}
             className="w-full bg-transparent p-3 pb-11 text-sm text-zinc-100 placeholder:text-fg-subtle focus:outline-none resize-none font-sans"
           />
@@ -792,6 +795,8 @@ const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop
               <button
                 onClick={submit}
                 disabled={!inputText.trim()}
+                aria-label="Send"
+                title="Send (Enter)"
                 className="p-1.5 rounded-lg bg-primary-solid hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100 text-white transition shadow"
               >
                 <Send size={15} />
