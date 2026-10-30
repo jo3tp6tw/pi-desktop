@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import * as monaco from 'monaco-editor';
 import Editor, { loader, OnMount, BeforeMount } from '@monaco-editor/react';
+import { tokenHex } from '../lib/theme';
 
 // 使用本地安裝的 monaco-editor（0.57+ 內建 ESM new Worker(new URL(..., import.meta.url))，Vite 會自動打包本地 Worker，完全不依賴外部 CDN）
 loader.config({ monaco });
@@ -128,17 +129,17 @@ export const MonacoCodeEditor = forwardRef<MonacoCodeEditorHandle, MonacoCodeEdi
       base: 'vs-dark',
       inherit: true,
       rules: [],
+      // 底色、行號等與介面共用 index.css 的色彩 token
       colors: {
-        'editor.background': '#121214',
+        'editor.background': tokenHex('canvas', '#121214'),
         'editor.foreground': '#e4e4e7',
-        // 與 --fg-subtle 相同，行號在編輯器底色上需 ≥4.5:1
-        'editorLineNumber.foreground': '#909098',
-        'editorLineNumber.activeForeground': '#a1a1aa',
-        'editor.lineHighlightBackground': '#18181b',
-        'editor.selectionBackground': '#3f3f4680',
-        'editorWidget.background': '#18181b',
-        'editorWidget.border': '#27272a',
-        'editorGutter.background': '#121214',
+        'editorLineNumber.foreground': tokenHex('fg-subtle', '#909098'),
+        'editorLineNumber.activeForeground': tokenHex('fg-muted', '#a1a1aa'),
+        'editor.lineHighlightBackground': tokenHex('surface', '#18181b'),
+        'editor.selectionBackground': tokenHex('line-strong', '#3f3f46') + '80',
+        'editorWidget.background': tokenHex('surface', '#18181b'),
+        'editorWidget.border': tokenHex('line', '#27272a'),
+        'editorGutter.background': tokenHex('canvas', '#121214'),
       },
     });
 
@@ -201,7 +202,7 @@ export const MonacoCodeEditor = forwardRef<MonacoCodeEditorHandle, MonacoCodeEdi
       }}
       loading={
         <div className="h-full w-full flex items-center justify-center text-xs text-fg-subtle">
-          載入 Monaco 編輯器中...
+          Loading editor…
         </div>
       }
     />

@@ -3,6 +3,7 @@ import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { Plus, X, ChevronDown, Trash2, Terminal as TerminalIcon, Server } from 'lucide-react';
 import type { SshConfig } from '../types';
+import { tokenHex } from '../lib/theme';
 
 // 取得受控 Electron IPC（透過 preload contextBridge 暴露）
 import { ipcRenderer } from '../lib/ipc';
@@ -43,11 +44,12 @@ const ensureDispatcher = () => {
   });
 };
 
-const XTERM_THEME = {
-  background: '#101012',
+// 底色、游標、選取色與介面共用 index.css 的色彩 token；ANSI 16 色維持終端機慣用色
+const xtermTheme = () => ({
+  background: tokenHex('sunken', '#101012'),
   foreground: '#e4e4e7',
-  cursor: '#a1a1aa',
-  selectionBackground: '#3f3f46',
+  cursor: tokenHex('fg-muted', '#a1a1aa'),
+  selectionBackground: tokenHex('line-strong', '#3f3f46'),
   black: '#18181b',
   red: '#f87171',
   green: '#4ade80',
@@ -64,7 +66,7 @@ const XTERM_THEME = {
   brightMagenta: '#a855f7',
   brightCyan: '#06b6d4',
   brightWhite: '#ffffff',
-};
+});
 
 /* ------------------------------------------------------------------ */
 /* 單一終端機實例：掛載時建立 xterm 與 pty，卸載時關閉                    */
@@ -117,7 +119,7 @@ const TerminalInstance: React.FC<TerminalInstanceProps> = ({
     let disposed = false;
 
     const term = new XTerm({
-      theme: XTERM_THEME,
+      theme: xtermTheme(),
       fontFamily: 'Consolas, "Cascadia Mono", Menlo, Monaco, "Courier New", monospace',
       fontSize: 13,
       lineHeight: 1.2,
@@ -159,13 +161,13 @@ const TerminalInstance: React.FC<TerminalInstanceProps> = ({
     });
 
     if (!ipcRenderer) {
-      term.writeln('\x1b[33m此功能需要在 Electron 桌面版中執行。\x1b[0m');
+      term.writeln('\x1b[33mThe terminal requires the desktop app.\x1b[0m');
     } else {
       ipcRenderer
         .invoke('term:create', { shellId, cwd, cols: term.cols, rows: term.rows, ssh })
         .then((res: any) => {
           if (!res?.success) {
-            term.writeln(`\x1b[31m無法啟動終端機：${res?.error || '未知錯誤'}\x1b[0m`);
+            term.writeln(`\x1b[31mCould not start terminal: ${res?.error || 'unknown error'}\x1b[0m`);
             return;
           }
           // StrictMode 或快速關閉：建立完成時元件已卸載 → 直接關掉
@@ -249,7 +251,7 @@ interface ShellTerminalProps {
 export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
   const nextKey = useRef(2);
   const [tabs, setTabs] = useState<TabInfo[]>([
-    { key: 1, title: ssh ? `SSH: ${ssh.host}` : '終端機', cwd, ssh },
+    { key: 1, title: ssh ? `SSH: ${ssh.host}` : 'Terminal', cwd, ssh },
   ]);
   const [activeKey, setActiveKey] = useState(1);
   const [shells, setShells] = useState<ShellInfo[]>([]);
@@ -310,7 +312,7 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
       : shells.find((s) => s.id === shellId)?.name;
     setTabs((prev) => [
       ...prev,
-      { key, shellId, title: shellName || '終端機', cwd, ssh: useSsh },
+      { key, shellId, title: shellName || 'Terminal', cwd, ssh: useSsh },
     ]);
     setActiveKey(key);
     setMenuOpen(false);
@@ -368,7 +370,7 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
                   e.stopPropagation();
                   closeTab(t.key);
                 }}
-                title="關閉終端機"
+                title="Close terminal"
                 className={`icon-btn focus-ring-inset p-0.5 hover:bg-zinc-700 ${
                   t.key === activeKey ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
                 }`}
@@ -383,14 +385,14 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
         <div ref={menuRef} className="relative flex items-center shrink-0">
           <button
             onClick={() => addTab()}
-            title="新增終端機"
+            title="New terminal"
             className="icon-btn rounded-r-none"
           >
             <Plus size={14} />
           </button>
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            title="選擇 Shell"
+            title="Choose shell"
             className="icon-btn rounded-l-none"
           >
             <ChevronDown size={12} />
@@ -410,7 +412,7 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
                 </>
               )}
               {shells.length === 0 && (
-                <div className="px-3 py-1.5 text-fg-subtle">找不到可用的本機 Shell</div>
+                <div className="px-3 py-1.5 text-fg-subtle">No local shells found</div>
               )}
               {shells.map((s) => (
                 <button
@@ -427,7 +429,7 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
 
         <button
           onClick={() => setClearSignal((n) => n + 1)}
-          title="清除畫面"
+          title="Clear"
           className="icon-btn"
         >
           <Trash2 size={13} />
@@ -452,12 +454,12 @@ export const ShellTerminal: React.FC<ShellTerminalProps> = ({ cwd, ssh }) => {
         {tabs.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center gap-3 text-fg-subtle">
             <TerminalIcon size={26} className="opacity-40" />
-            <div className="text-sm">沒有開啟的終端機</div>
+            <div className="text-sm">No open terminals</div>
             <button
               onClick={() => addTab()}
               className="flex items-center gap-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 text-xs text-zinc-200 transition"
             >
-              <Plus size={12} /> 新增終端機
+              <Plus size={12} /> New terminal
             </button>
           </div>
         )}

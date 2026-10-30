@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Folder, 
   FolderPlus, 
-  Filter, 
   Plus, 
   ChevronDown, 
   ChevronRight, 
@@ -102,20 +101,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <span className="font-semibold text-zinc-300">Projects</span>
         <div className="flex items-center gap-0.5">
           <button
-            title="Filter projects"
-            className="icon-btn"
-          >
-            <Filter size={15} />
-          </button>
-          <button
-            title="新增 SSH 遠端專案 (Native SSH)"
+            title="Add SSH project"
             onClick={onOpenSshModal}
             className="icon-btn text-cyan-400 hover:text-cyan-300"
           >
             <Server size={15} />
           </button>
           <button
-            title="Open Folder / Add Local Project"
+            title="Add local folder"
             onClick={onOpenFolder}
             className="icon-btn"
           >
@@ -170,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         e.stopPropagation();
                         onNewSession(project.id);
                       }}
-                      title="New chat in this project"
+                      title="New chat"
                       className="icon-btn opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                     >
                       <Plus size={14} />
@@ -216,7 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-3 border-t border-line bg-zinc-900/60 text-xs flex items-center justify-between text-zinc-400">
         <button
           onClick={onOpenCoreManager}
-          title="點擊管理 Pi 核心與檢查更新"
+          title="Pi core"
           className="flex items-center space-x-2 truncate hover:text-zinc-200 transition text-left"
         >
           <div 
@@ -230,21 +223,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Pi Core v{coreInfo?.version || '1.3.0'}
             </span>
             <span className="text-xs text-fg-subtle">
-              {coreInfo?.type === 'user' ? '已更新版' : coreInfo?.type === 'bundled' ? '內建封裝' : '系統全域'}
+              {coreInfo?.type === 'user' ? 'User install' : coreInfo?.type === 'bundled' ? 'Bundled' : 'System PATH'}
             </span>
           </div>
         </button>
 
         <div className="flex items-center space-x-1">
           <button
-            title="模型與細項參數設定"
+            title="Model settings"
             onClick={onOpenModelSettings}
             className="icon-btn p-1.5"
           >
             <Cpu size={14} />
           </button>
           <button
-            title="Pi 核心設定與更新"
+            title="Pi core settings"
             onClick={onOpenCoreManager}
             className="icon-btn p-1.5"
           >

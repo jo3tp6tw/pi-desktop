@@ -50,7 +50,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
 
   const handleCheckUpdate = async () => {
     if (!ipcRenderer) {
-      setStatusMessage('瀏覽器預覽模式無法執行核心更新，請於桌面版運行');
+      setStatusMessage('Updates are unavailable in browser preview');
       return;
     }
     setChecking(true);
@@ -59,10 +59,10 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
       const res: CheckUpdateResult = await ipcRenderer.invoke('core:check-update');
       setUpdateResult(res);
       if (!res.hasUpdate) {
-        setStatusMessage('目前已是最新版本！');
+        setStatusMessage('Already up to date');
       }
     } catch (e: any) {
-      setStatusMessage(`檢查失敗: ${e.message}`);
+      setStatusMessage(`Check failed: ${e.message}`);
     } finally {
       setChecking(false);
     }
@@ -71,20 +71,20 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
   const handleDoUpdate = async () => {
     if (!ipcRenderer || !updateResult?.latestVersion) return;
     setIsUpdating(true);
-    setUpdateLogs([`開始下載安裝 @earendil-works/pi-coding-agent@${updateResult.latestVersion}...`]);
+    setUpdateLogs([`Installing @earendil-works/pi-coding-agent@${updateResult.latestVersion}…`]);
     setStatusMessage(null);
 
     try {
       const res = await ipcRenderer.invoke('core:do-update', updateResult.latestVersion);
       if (res.success) {
-        setStatusMessage(`核心升級完成！已切換至 v${res.updatedVersion}`);
+        setStatusMessage(`Updated to v${res.updatedVersion}`);
         await ipcRenderer.invoke('core:restart');
         if (onCoreReload) onCoreReload();
       } else {
-        setStatusMessage(`升級失敗: ${res.error}`);
+        setStatusMessage(`Update failed: ${res.error}`);
       }
     } catch (e: any) {
-      setStatusMessage(`升級過程異常: ${e.message}`);
+      setStatusMessage(`Update failed: ${e.message}`);
     } finally {
       setIsUpdating(false);
     }
@@ -92,14 +92,14 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
 
   const handleResetBundled = async () => {
     if (!ipcRenderer) return;
-    if (!confirm('確定要清除已下載的更新，還原至專案內建的基礎版本嗎？')) return;
+    if (!confirm('Remove downloaded updates and revert to the bundled version?')) return;
 
     try {
       await ipcRenderer.invoke('core:reset-bundled');
-      setStatusMessage('已成功還原至內建預設版本！');
+      setStatusMessage('Reverted to the bundled version');
       if (onCoreReload) onCoreReload();
     } catch (e: any) {
-      setStatusMessage(`還原失敗: ${e.message}`);
+      setStatusMessage(`Revert failed: ${e.message}`);
     }
   };
 
@@ -107,10 +107,10 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
     if (!ipcRenderer) return;
     try {
       await ipcRenderer.invoke('core:restart');
-      setStatusMessage('核心已重新啟動');
+      setStatusMessage('Core restarted');
       if (onCoreReload) onCoreReload();
     } catch (e: any) {
-      setStatusMessage(`重啟失敗: ${e.message}`);
+      setStatusMessage(`Restart failed: ${e.message}`);
     }
   };
 
@@ -119,19 +119,19 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
       case 'user':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <FolderGit2 className="w-3 h-3" /> 使用者更新目錄 (User Updated)
+            <FolderGit2 className="w-3 h-3" /> User install
           </span>
         );
       case 'bundled':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20">
-            <ShieldCheck className="w-3 h-3" /> 專案內建封裝版 (Bundled Base)
+            <ShieldCheck className="w-3 h-3" /> Bundled
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            系統 PATH (System Global)
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sm font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
+            System PATH
           </span>
         );
     }
@@ -148,8 +148,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
               <Cpu className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-zinc-100">Pi 核心動態管理</h2>
-              <p className="text-sm text-zinc-400">雙層動態加載機制與線上一鍵更新</p>
+              <h2 className="text-sm font-semibold text-zinc-100">Pi core</h2>
             </div>
           </div>
           <button
@@ -165,18 +164,18 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
           {/* Current Status Card */}
           <div className="p-3.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">生效版本：</span>
+              <span className="text-zinc-400">Version</span>
               <span className="tabular-nums text-sm font-bold text-zinc-100">
                 v{coreInfo?.version || '1.3.0'}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400">核心來源：</span>
+              <span className="text-zinc-400">Source</span>
               {getTypeBadge(coreInfo?.type)}
             </div>
             {coreInfo?.baseDir && (
               <div className="pt-1.5 border-t border-zinc-800/60 text-xs text-fg-subtle font-mono truncate">
-                路徑: {coreInfo.baseDir}
+                {coreInfo.baseDir}
               </div>
             )}
           </div>
@@ -189,27 +188,27 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary-solid hover:brightness-110 disabled:opacity-50 text-white font-medium transition"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
-              {checking ? '檢查中...' : '檢查 npm 最新版本'}
+              {checking ? 'Checking…' : 'Check for updates'}
             </button>
 
             <button
               onClick={handleRestartCore}
               disabled={isUpdating}
-              title="重啟本地 RPC 核心"
+              title="Restart core"
               className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition flex items-center gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              重啟
+              Restart
             </button>
 
             {coreInfo?.type === 'user' && (
               <button
                 onClick={handleResetBundled}
                 disabled={isUpdating}
-                title="還原為內建版本"
+                title="Revert to bundled version"
                 className="px-3 py-2 rounded-lg bg-danger/10 hover:bg-danger/20 border border-danger/30 text-danger transition"
               >
-                還原內建
+                Revert
               </button>
             )}
           </div>
@@ -227,20 +226,17 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
             <div className="p-3.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 space-y-2">
               <div className="flex items-center justify-between text-emerald-400">
                 <span className="font-semibold flex items-center gap-1.5">
-                  <DownloadCloud className="w-4 h-4" /> 發現新版本！
+                  <DownloadCloud className="w-4 h-4" /> Update available
                 </span>
                 <span className="tabular-nums font-bold">v{updateResult.latestVersion}</span>
               </div>
-              <p className="text-xs text-zinc-400">
-                更新檔將安全下載至使用者的 AppData 目錄，完全不影響內建的基礎備份。
-              </p>
               <button
                 onClick={handleDoUpdate}
                 disabled={isUpdating}
                 className="w-full mt-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition"
               >
                 <DownloadCloud className="w-3.5 h-3.5" />
-                {isUpdating ? '正在下載更新...' : `立即升級至 v${updateResult.latestVersion}`}
+                {isUpdating ? 'Downloading…' : `Update to v${updateResult.latestVersion}`}
               </button>
             </div>
           )}
@@ -250,7 +246,7 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
             <div className="rounded-lg bg-black/60 border border-zinc-800 p-2.5 space-y-1">
               <div className="flex items-center gap-1.5 text-zinc-400 text-xs">
                 <Terminal className="w-3 h-3" />
-                <span>升級日誌：</span>
+                <span>Log</span>
               </div>
               <div className="font-mono text-xs text-zinc-300 max-h-28 overflow-y-auto space-y-0.5">
                 {updateLogs.map((log, i) => (
@@ -260,11 +256,6 @@ export const CoreManagerModal: React.FC<CoreManagerModalProps> = ({
             </div>
           )}
 
-          {/* Architecture Description */}
-          <div className="text-xs text-fg-subtle leading-relaxed bg-zinc-900/30 p-2.5 rounded border border-zinc-800/40">
-            <span className="text-zinc-400 font-semibold">雙層架構說明：</span>
-            本桌面程式已在 <code className="text-zinc-400">resources/pi-core</code> 內建完整 Pi Agent 基礎版，即使沒有聯網或無外部 Node.js 也能即開即用；若進行升級，新版將存放在使用者專屬目錄並優先載入，隨時可一鍵無損還原。
-          </div>
         </div>
       </div>
     </div>

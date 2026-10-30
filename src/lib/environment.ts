@@ -7,7 +7,7 @@ export interface PiEnvironment {
   ssh: SshConfig | null;
 }
 
-export const LOCAL_ENV: PiEnvironment = { key: 'local', label: '本機', ssh: null };
+export const LOCAL_ENV: PiEnvironment = { key: 'local', label: 'Local', ssh: null };
 
 // 與 electron/main.cjs 的 envKeyOf 一致（SshConfig.id 已在儲存時正規化）
 export const envKeyOf = (ssh?: SshConfig | null): string => (ssh ? `ssh:${ssh.id}` : 'local');

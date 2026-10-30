@@ -68,7 +68,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 : 'hover:bg-zinc-800/40 hover:text-zinc-300'
             }`}
           >
-            <FolderTree size={14} className="text-amber-400" />
+            <FolderTree size={14} />
             <span>Files</span>
           </button>
 
@@ -81,7 +81,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 : 'hover:bg-zinc-800/40 hover:text-zinc-300'
             }`}
           >
-            <Terminal size={14} className="text-emerald-400" />
+            <Terminal size={14} />
             <span>Terminal</span>
           </button>
 
@@ -94,7 +94,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
                 : 'hover:bg-zinc-800/40 hover:text-zinc-300'
             }`}
           >
-            <Bot size={14} className="text-purple-400" />
+            <Bot size={14} />
             <span>Subagents</span>
             {subagents.some((s) => s.status === 'running') && (
               <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
@@ -122,7 +122,7 @@ export const RightPanel: React.FC<RightPanelProps> = ({
             <Suspense
               fallback={
                 <div className="h-full flex items-center justify-center text-xs text-fg-subtle">
-                  載入終端機中...
+                  Loading terminal…
                 </div>
               }
             >

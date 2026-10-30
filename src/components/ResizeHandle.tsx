@@ -22,7 +22,7 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = ({
   onResize,
   onResizeEnd,
   onReset,
-  ariaLabel = '調整欄位寬度',
+  ariaLabel = 'Resize column',
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const lastX = useRef(0);
@@ -78,7 +78,7 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = ({
       role="separator"
       aria-orientation="vertical"
       aria-label={ariaLabel}
-      title="拖曳調整寬度，雙擊還原預設"
+      title="Drag to resize, double-click to reset"
       onMouseDown={handleMouseDown}
       onDoubleClick={onReset}
       className={`group relative z-30 w-1 shrink-0 cursor-col-resize touch-none transition-colors ${

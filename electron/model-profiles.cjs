@@ -20,15 +20,15 @@ const PROFILE_PROVIDER_PREFIX = 'pui-';
 
 // 需要 OAuth 或特殊雲端認證，無法複製成獨立供應商的內建供應商
 const UNSUPPORTED_PROVIDERS = {
-  'github-copilot': '需透過 /login 以 GitHub 帳號登入',
-  'openai-codex': '需透過 /login 以 ChatGPT 帳號登入',
-  radius: '需透過 /login 登入',
-  'amazon-bedrock': '使用 AWS 雲端認證',
-  'google-vertex': '使用 Google Cloud 雲端認證',
-  azure: '需要 Azure 資源設定',
-  'cloudflare-ai-gateway': '需要 Cloudflare 帳號設定',
-  'cloudflare-workers-ai': '需要 Cloudflare 帳號設定',
-  typesafe: '僅提供分類模型',
+  'github-copilot': 'requires /login with GitHub',
+  'openai-codex': 'requires /login with ChatGPT',
+  radius: 'requires /login',
+  'amazon-bedrock': 'uses AWS credentials',
+  'google-vertex': 'uses Google Cloud credentials',
+  azure: 'requires Azure resource setup',
+  'cloudflare-ai-gateway': 'requires a Cloudflare account',
+  'cloudflare-workers-ai': 'requires a Cloudflare account',
+  typesafe: 'classification models only',
 };
 
 // 只有這些 API 格式會送出 samplingParams（其他格式 pi 會忽略）
@@ -47,7 +47,7 @@ const READ_CATALOG_FN = `async ({ coreDir }) => {
     try {
       bin = execSync('command -v pi', { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], shell: '/bin/sh' }).trim();
     } catch {}
-    if (!bin) throw new Error('找不到 pi 指令，請確認此環境已安裝 pi');
+    if (!bin) throw new Error('pi command not found; make sure pi is installed in this environment');
     let dir = path.dirname(fs.realpathSync(bin));
     while (dir && dir !== path.dirname(dir)) {
       const pj = path.join(dir, 'package.json');
@@ -58,7 +58,7 @@ const READ_CATALOG_FN = `async ({ coreDir }) => {
       }
       dir = path.dirname(dir);
     }
-    if (!pkgDir) throw new Error('無法定位 pi 的安裝目錄');
+    if (!pkgDir) throw new Error('Could not locate the pi install directory');
   }
 
   // pi-ai 的 exports 不開放 package.json，改沿 node_modules 向上尋找（可能被提升到上層）
@@ -67,7 +67,7 @@ const READ_CATALOG_FN = `async ({ coreDir }) => {
     const cand = path.join(dir, 'node_modules', '@earendil-works', 'pi-ai', 'dist', 'providers', 'data');
     if (fs.existsSync(cand)) { dataDir = cand; break; }
   }
-  if (!dataDir) throw new Error('找不到 pi 內建模型目錄 (pi-ai)');
+  if (!dataDir) throw new Error('Could not find the pi model catalog (pi-ai)');
   const version = (() => {
     try { return JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf-8')).version; } catch { return null; }
   })();
@@ -144,7 +144,7 @@ class ModelProfileManager {
     } else {
       const core = this.coreManager.resolveCore();
       const coreDir = core.baseDir || this.coreManager.getBundledCoreDir();
-      if (!coreDir) return { success: false, error: '找不到本機 pi 核心目錄' };
+      if (!coreDir) return { success: false, error: 'Local pi core directory not found' };
       try {
         // eslint-disable-next-line no-eval
         res = await eval(`(${READ_CATALOG_FN})`)({ coreDir });
@@ -244,10 +244,10 @@ class ModelProfileManager {
     }
 
     const prov = catalog.providers.find((p) => p.id === profile.provider);
-    if (!prov) throw new Error(`此環境的 pi 沒有供應商「${profile.provider}」`);
-    if (!prov.supported) throw new Error(`「${profile.provider}」${prov.unsupportedReason}，無法用設定檔`);
+    if (!prov) throw new Error(`Provider ${profile.provider} is not available in this pi`);
+    if (!prov.supported) throw new Error(`${profile.provider} ${prov.unsupportedReason}; it can't be used in a profile`);
     const base = prov.models.find((m) => m.id === profile.modelId);
-    if (!base) throw new Error(`此環境的 pi 沒有模型「${profile.provider}/${profile.modelId}」`);
+    if (!base) throw new Error(`Model ${profile.provider}/${profile.modelId} is not available in this pi`);
 
     const { api, baseUrl, ...spec } = base;
     const model = { ...spec, name: profile.name };
@@ -267,7 +267,7 @@ class ModelProfileManager {
 
     const needsCatalog = profiles.some((p) => p.kind !== 'openai-compatible');
     const catalog = needsCatalog ? await this.getCatalog(ssh) : null;
-    if (catalog && !catalog.success) return { success: false, error: `讀取 pi 模型目錄失敗：${catalog.error}` };
+    if (catalog && !catalog.success) return { success: false, error: `Could not read the pi model catalog: ${catalog.error}` };
 
     const entries = {};
     const errors = [];
@@ -275,7 +275,7 @@ class ModelProfileManager {
       try {
         entries[this.providerKeyOf(p)] = this.buildProviderEntry(p, catalog);
       } catch (e) {
-        errors.push(`${p.name}：${e.message}`);
+        errors.push(`${p.name}: ${e.message}`);
       }
     }
 

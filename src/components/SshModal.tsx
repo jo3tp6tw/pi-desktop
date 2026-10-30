@@ -75,12 +75,12 @@ export const SshModal: React.FC<SshModalProps> = ({
 
   const handleBrowse = async (targetPath = '', overrideSsh?: SshConfig) => {
     if (!ipcRenderer) {
-      setError('純網頁預覽模式無法使用系統 SSH，請於 Electron 桌面版執行。');
+      setError('SSH is unavailable in browser preview.');
       return;
     }
     const sshCfg = overrideSsh || buildCurrentSsh();
     if (!sshCfg.host) {
-      setError('請輸入 SSH 主機位址（例如 user@192.168.1.50 或 ssh config 別名）');
+      setError('Enter a host, e.g. user@192.168.1.50 or an ssh config alias');
       return;
     }
 
@@ -92,13 +92,13 @@ export const SshModal: React.FC<SshModalProps> = ({
         targetPath,
       });
       if (!res || !res.success) {
-        setError(res?.error || 'SSH 連線失敗');
+        setError(res?.error || 'SSH connection failed');
         return;
       }
       setBrowseData(res);
       setPathInput(res.currentPath || '');
     } catch (e: any) {
-      setError(e?.message || 'SSH 連線異常');
+      setError(e?.message || 'SSH connection error');
     } finally {
       setConnecting(false);
     }
@@ -129,10 +129,10 @@ export const SshModal: React.FC<SshModalProps> = ({
         setIsCreatingFolder(false);
         await handleBrowse(res.path || fullNewPath);
       } else {
-        setError(res?.error || '建立資料夾失敗');
+        setError(res?.error || 'Could not create folder');
       }
     } catch (e: any) {
-      setError(e?.message || '建立資料夾失敗');
+      setError(e?.message || 'Could not create folder');
     } finally {
       setCreatingFolderLoading(false);
     }
@@ -172,10 +172,7 @@ export const SshModal: React.FC<SshModalProps> = ({
               <Server size={18} />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-zinc-100">新增 SSH 遠端專案</h2>
-              <p className="text-xs text-zinc-400">
-                直接使用系統原生 <code className="text-cyan-300 font-mono">ssh</code> 連線，支援 SSH Key 免密與密碼登入
-              </p>
+              <h2 className="text-base font-semibold text-zinc-100">Add SSH project</h2>
             </div>
           </div>
           <button
@@ -192,7 +189,7 @@ export const SshModal: React.FC<SshModalProps> = ({
           {savedHosts.length > 0 && (
             <div>
               <div className="text-xs font-medium text-zinc-400 mb-1.5 flex items-center gap-1.5">
-                <History size={12} /> 曾連線的遠端主機（點擊直接連線）：
+                <History size={12} /> Recent hosts
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {savedHosts.map((h) => (
@@ -219,7 +216,7 @@ export const SshModal: React.FC<SshModalProps> = ({
             <div className="grid grid-cols-12 gap-3">
               <div className="col-span-9">
                 <label className="block text-xs font-medium text-zinc-400 mb-1">
-                  SSH 目標主機 (user@host 或 ~/.ssh/config 別名)
+                  Host
                 </label>
                 <input
                   type="text"
@@ -228,7 +225,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleBrowse(pathInput);
                   }}
-                  placeholder="例如：ubuntu@192.168.1.50 或 my-linux-server"
+                  placeholder="user@192.168.1.50 or ssh config alias"
                   className="field bg-surface py-1.5 font-mono"
                 />
               </div>
@@ -247,7 +244,7 @@ export const SshModal: React.FC<SshModalProps> = ({
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <label className="block text-xs font-medium text-zinc-400 mb-1">
-                  密碼 <span className="text-fg-subtle font-normal">（選填：若已設好 SSH Key 免密登入請留空；有填則透過 SSH_ASKPASS 自動登入）</span>
+                  Password <span className="text-fg-subtle font-normal">(optional)</span>
                 </label>
                 <div className="relative">
                   <input
@@ -257,14 +254,14 @@ export const SshModal: React.FC<SshModalProps> = ({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleBrowse(pathInput);
                     }}
-                    placeholder="留空代表使用 SSH Key 免密登入"
+                    placeholder="Leave empty to use your SSH key"
                     className="field bg-surface pl-3 pr-9 py-1.5 font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-zinc-300"
-                    title={showPassword ? '隱藏密碼' : '顯示密碼'}
+                    title={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -279,12 +276,12 @@ export const SshModal: React.FC<SshModalProps> = ({
                 {connecting ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    <span>連線中...</span>
+                    <span>Connecting…</span>
                   </>
                 ) : (
                   <>
                     <RefreshCw size={14} />
-                    <span>連線並瀏覽目錄</span>
+                    <span>Connect</span>
                   </>
                 )}
               </button>
@@ -307,17 +304,17 @@ export const SshModal: React.FC<SshModalProps> = ({
                 <div className="flex items-center gap-2 text-emerald-300">
                   <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
                   <span>
-                    已連上 <strong className="font-mono">{host.trim()}</strong>（Node {browseData.nodeVersion}）
+                    Connected to <strong className="font-mono">{host.trim()}</strong> · Node {browseData.nodeVersion}
                   </span>
                 </div>
                 <div>
                   {browseData.piAvailable ? (
                     <span className="text-emerald-300">
-                      ✓ 遠端 Pi 已就緒 ({browseData.piPath})
+                      pi ready · <span className="font-mono">{browseData.piPath}</span>
                     </span>
                   ) : (
-                    <span className="text-amber-300">
-                      ⚠ 遠端 PATH 尚未偵測到 pi 指令
+                    <span className="flex items-center gap-1 text-warning">
+                      <AlertCircle size={13} className="shrink-0" /> pi not found in remote PATH
                     </span>
                   )}
                 </div>
@@ -335,7 +332,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                     }`}
                   >
                     <FolderTree size={13} />
-                    <span>瀏覽遠端資料夾</span>
+                    <span>Browse folders</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('discovered')}
@@ -347,7 +344,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                   >
                     <History size={13} />
                     <span>
-                      遠端既有 Pi 專案 ({browseData.discoveredProjects?.length || 0})
+                      Pi projects ({browseData.discoveredProjects?.length || 0})
                     </span>
                   </button>
                 </div>
@@ -360,7 +357,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                     <button
                       onClick={() => browseData.parentPath && handleBrowse(browseData.parentPath)}
                       disabled={!browseData.parentPath || connecting}
-                      title="返回上一層目錄 (..)"
+                      title="Up one level"
                       className="p-1.5 rounded hover:bg-zinc-800 disabled:opacity-40 text-zinc-300 transition"
                     >
                       <CornerLeftUp size={14} />
@@ -368,7 +365,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                     <button
                       onClick={() => browseData.homeDir && handleBrowse(browseData.homeDir)}
                       disabled={connecting}
-                      title="前往家目錄 (~)"
+                      title="Home (~)"
                       className="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 transition"
                     >
                       <Home size={14} />
@@ -388,16 +385,16 @@ export const SshModal: React.FC<SshModalProps> = ({
                     <button
                       onClick={() => handleBrowse(pathInput)}
                       disabled={connecting}
-                      title="前往此路徑"
+                      title="Go to path"
                       className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 transition flex items-center gap-1"
                     >
-                      <span>前往</span>
+                      <span>Go</span>
                       <ArrowRight size={12} />
                     </button>
 
                     <button
                       onClick={() => setIsCreatingFolder((v) => !v)}
-                      title="在目前目錄下新增資料夾"
+                      title="New folder"
                       className="p-1.5 rounded hover:bg-zinc-800 text-cyan-400 transition"
                     >
                       <FolderPlus size={14} />
@@ -417,7 +414,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                           if (e.key === 'Enter') handleCreateFolder();
                           if (e.key === 'Escape') setIsCreatingFolder(false);
                         }}
-                        placeholder="輸入新資料夾名稱..."
+                        placeholder="Folder name"
                         className="field w-auto min-w-0 flex-1 rounded px-2.5 py-1 text-xs font-mono"
                       />
                       <button
@@ -425,13 +422,13 @@ export const SshModal: React.FC<SshModalProps> = ({
                         disabled={creatingFolderLoading || !newFolderName.trim()}
                         className="px-2.5 py-1 rounded bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-xs text-white transition"
                       >
-                        建立
+                        Create
                       </button>
                       <button
                         onClick={() => setIsCreatingFolder(false)}
                         className="px-2 py-1 rounded hover:bg-zinc-800 text-xs text-zinc-400"
                       >
-                        取消
+                        Cancel
                       </button>
                     </div>
                   )}
@@ -444,13 +441,13 @@ export const SshModal: React.FC<SshModalProps> = ({
                         className="px-3 py-2 flex items-center gap-2.5 text-xs text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200 cursor-pointer transition"
                       >
                         <CornerLeftUp size={14} className="text-fg-subtle" />
-                        <span className="font-mono">.. (返回上一層)</span>
+                        <span className="font-mono">..</span>
                       </div>
                     )}
 
                     {(browseData.directories || []).length === 0 ? (
                       <div className="py-8 text-center text-xs text-fg-subtle">
-                        此目錄下沒有其他子資料夾（可直接點選下方按鈕開啟目前目錄）
+                        No subfolders
                       </div>
                     ) : (
                       browseData.directories!.map((dir) => (
@@ -470,7 +467,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                             }}
                             className="opacity-0 group-hover:opacity-100 px-2 py-0.5 rounded bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/30 text-2xs transition shrink-0"
                           >
-                            選擇此目錄
+                            Select
                           </button>
                         </div>
                       ))
@@ -480,14 +477,14 @@ export const SshModal: React.FC<SshModalProps> = ({
                   {/* 底部確認選擇目前路徑 */}
                   <div className="px-3.5 py-2.5 bg-surface-2 border-t border-line flex items-center justify-between gap-3">
                     <div className="text-xs text-zinc-400 truncate">
-                      目前目錄：<span className="font-mono text-zinc-100">{browseData.currentPath}</span>
+                      Current: <span className="font-mono text-zinc-100">{browseData.currentPath}</span>
                     </div>
                     <button
                       onClick={() => handleConfirmOpenPath(browseData.currentPath || pathInput)}
                       className="px-3.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition flex items-center gap-1.5 shrink-0"
                     >
                       <Play size={12} />
-                      <span>開啟目前目錄作為專案</span>
+                      <span>Open this folder</span>
                     </button>
                   </div>
                 </div>
@@ -496,7 +493,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                 <div className="rounded-lg border border-line bg-canvas overflow-hidden max-h-72 overflow-y-auto divide-y divide-line">
                   {!browseData.discoveredProjects || browseData.discoveredProjects.length === 0 ? (
                     <div className="py-10 text-center text-xs text-fg-subtle">
-                      這台遠端主機的 <code className="font-mono">~/.pi/agent/sessions</code> 尚無歷史對話紀錄，請切換至「瀏覽遠端資料夾」選擇專案目錄。
+                      No Pi sessions on this host.
                     </div>
                   ) : (
                     browseData.discoveredProjects.map((dp: DiscoveredRemoteProject) => (
@@ -509,7 +506,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                             <Folder size={14} className="text-cyan-400 shrink-0" />
                             <span>{dp.name}</span>
                             <span className="text-2xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 tabular-nums">
-                              {dp.sessionCount} 個對話
+                              {dp.sessionCount} {dp.sessionCount === 1 ? 'session' : 'sessions'}
                             </span>
                           </div>
                           <div className="text-xs font-mono text-fg-subtle truncate mt-0.5">
@@ -520,7 +517,7 @@ export const SshModal: React.FC<SshModalProps> = ({
                           onClick={() => handleConfirmOpenPath(dp.path)}
                           className="px-3 py-1 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition shrink-0"
                         >
-                          加入並開啟
+                          Add and open
                         </button>
                       </div>
                     ))

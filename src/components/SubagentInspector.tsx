@@ -29,13 +29,13 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
   const getAgentIcon = (agent: string) => {
     switch (agent.toLowerCase()) {
       case 'scout':
-        return <Search size={14} className="text-purple-400" />;
+        return <Search size={14} className="text-fg-muted" />;
       case 'planner':
-        return <Sparkles size={14} className="text-blue-400" />;
+        return <Sparkles size={14} className="text-fg-muted" />;
       case 'reviewer':
-        return <ShieldAlert size={14} className="text-amber-400" />;
+        return <ShieldAlert size={14} className="text-fg-muted" />;
       default:
-        return <Wrench size={14} className="text-emerald-400" />;
+        return <Wrench size={14} className="text-fg-muted" />;
     }
   };
 
@@ -43,19 +43,16 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
     <div className="h-full flex flex-col bg-canvas overflow-hidden select-text">
       {/* 頂部標題 */}
       <div className="h-10 px-2 bg-surface border-b border-line flex items-center justify-between text-xs text-zinc-400 select-none">
-        <span className="text-zinc-300 font-medium">Subagents Inspector</span>
+        <span className="text-zinc-300 font-medium">Subagents</span>
         <span className="text-xs text-fg-subtle">
-          {subagents.length} Agent{subagents.length > 1 ? 's' : ''} Active
+          {subagents.length} {subagents.length === 1 ? 'agent' : 'agents'}
         </span>
       </div>
 
       {subagents.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-5 text-center text-fg-subtle text-sm">
           <Bot size={28} className="mb-2 opacity-40 text-zinc-400" />
-          <p>目前尚未指派 Subagent</p>
-          <p className="mt-1 text-xs text-fg-subtle">
-            當主 Agent 呼叫 scout、planner 或 worker 時，此處會顯示獨立執行紀錄。
-          </p>
+          <p>No subagents yet</p>
         </div>
       ) : (
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -76,10 +73,10 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
                   {getAgentIcon(agent.agent)}
                   <span className="capitalize">{agent.agent}</span>
                   {agent.status === 'running' && (
-                    <Loader2 size={11} className="animate-spin text-amber-400" />
+                    <Loader2 size={11} className="animate-spin text-warning" />
                   )}
                   {agent.status === 'completed' && (
-                    <CheckCircle2 size={11} className="text-emerald-400" />
+                    <CheckCircle2 size={11} className="text-success" />
                   )}
                 </button>
               );
@@ -92,8 +89,8 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
               {/* 任務摘要卡片 */}
               <div className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-sm space-y-1.5">
                 <div className="flex items-center justify-between text-zinc-400 text-xs">
-                  <span>子任務指派 (Isolated Context):</span>
-                  <span className="tabular-nums text-emerald-400">{currentSubagent.tokensUsed || 0} tokens</span>
+                  <span>Task</span>
+                  <span className="tabular-nums text-fg-subtle">{currentSubagent.tokensUsed || 0} tokens</span>
                 </div>
                 <div className="text-zinc-200 font-medium">
                   {currentSubagent.task}
@@ -103,8 +100,8 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
               {/* 專屬 Terminal Logs */}
               <div>
                 <div className="text-xs font-semibold text-zinc-400 mb-1.5 flex items-center space-x-1.5 select-none">
-                  <Terminal size={12} className="text-emerald-400" />
-                  <span>Subagent 終端機執行 Log：</span>
+                  <Terminal size={12} className="text-fg-muted" />
+                  <span>Log</span>
                 </div>
                 <div className="p-2.5 rounded bg-black/70 border border-zinc-800/90 font-mono text-xs text-zinc-300 leading-relaxed overflow-x-auto max-h-56">
                   {currentSubagent.terminalLogs && currentSubagent.terminalLogs.length > 0 ? (
@@ -112,7 +109,7 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
                       <div key={idx} className="whitespace-pre-wrap">{log}</div>
                     ))
                   ) : (
-                    <span className="text-fg-subtle">// 無獨立終端機輸出</span>
+                    <span className="text-fg-subtle">No output</span>
                   )}
                 </div>
               </div>
@@ -121,8 +118,8 @@ export const SubagentInspector: React.FC<SubagentInspectorProps> = ({
               {currentSubagent.output && (
                 <div>
                   <div className="text-xs font-semibold text-zinc-400 mb-1.5 flex items-center space-x-1.5 select-none">
-                    <FileText size={12} className="text-blue-400" />
-                    <span>回報主代理的結論：</span>
+                    <FileText size={12} className="text-fg-muted" />
+                    <span>Result</span>
                   </div>
                   <div className="p-3 rounded bg-zinc-900/80 border border-zinc-800 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap font-sans">
                     {currentSubagent.output}

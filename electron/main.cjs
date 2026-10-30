@@ -288,7 +288,7 @@ ipcMain.handle('fs:read-directory', async (event, arg) => {
       const parentPath = path.dirname(currentPath) !== currentPath ? path.dirname(currentPath) : null;
       return {
         success: false,
-        error: `目錄不存在: ${currentPath}`,
+        error: `Folder not found: ${currentPath}`,
         currentPath,
         parentPath,
         items: [],
@@ -366,11 +366,11 @@ ipcMain.handle('fs:read-file', async (event, arg) => {
   try {
     const resolved = path.resolve(String(filePath));
     if (!fs.existsSync(resolved)) {
-      return { success: false, error: `找不到檔案: ${resolved}` };
+      return { success: false, error: `File not found: ${resolved}` };
     }
     const st = fs.statSync(resolved);
     if (st.isDirectory()) {
-      return { success: false, error: '目標路徑是資料夾而非檔案' };
+      return { success: false, error: 'Path is a folder, not a file' };
     }
 
     const name = path.basename(resolved);
@@ -455,7 +455,7 @@ ipcMain.handle('fs:read-file', async (event, arg) => {
 // 寫入單一檔案內容（支援本機與 SSH 遠端）
 ipcMain.handle('fs:write-file', async (event, arg) => {
   const { filePath, content, ssh } = arg || {};
-  if (!filePath) return { success: false, error: '缺少檔案路徑' };
+  if (!filePath) return { success: false, error: 'Missing file path' };
   if (ssh && piBridge) {
     return await piBridge.sshManager.writeRemoteFile(ssh, filePath, content);
   }
@@ -478,11 +478,11 @@ ipcMain.handle('fs:create-item', async (event, arg) => {
   try {
     const cleanName = String(name || '').trim();
     if (!cleanName || cleanName.includes('/') || cleanName.includes('\\')) {
-      return { success: false, error: '無效的名稱' };
+      return { success: false, error: 'Invalid name' };
     }
     const targetPath = path.join(path.resolve(String(parentDir)), cleanName);
     if (fs.existsSync(targetPath)) {
-      return { success: false, error: `已存在同名檔案或資料夾: ${cleanName}` };
+      return { success: false, error: `An item with this name already exists: ${cleanName}` };
     }
     if (isDirectory) {
       fs.mkdirSync(targetPath, { recursive: true });
@@ -504,7 +504,7 @@ ipcMain.handle('fs:rename-item', async (event, arg) => {
   try {
     const cleanName = String(newName || '').trim();
     if (!cleanName || cleanName.includes('/') || cleanName.includes('\\')) {
-      return { success: false, error: '無效的名稱' };
+      return { success: false, error: 'Invalid name' };
     }
     const resolvedOld = path.resolve(String(oldPath));
     const newPath = path.join(path.dirname(resolvedOld), cleanName);
@@ -512,7 +512,7 @@ ipcMain.handle('fs:rename-item', async (event, arg) => {
       return { success: true, path: newPath };
     }
     if (resolvedOld.toLowerCase() !== newPath.toLowerCase() && fs.existsSync(newPath)) {
-      return { success: false, error: `目標名稱已存在: ${cleanName}` };
+      return { success: false, error: `Name already exists: ${cleanName}` };
     }
     fs.renameSync(resolvedOld, newPath);
     return { success: true, path: newPath };
@@ -530,7 +530,7 @@ ipcMain.handle('fs:move-items', async (event, arg) => {
   try {
     const resolvedTargetDir = path.resolve(String(targetDir));
     if (!fs.existsSync(resolvedTargetDir) || !fs.statSync(resolvedTargetDir).isDirectory()) {
-      return { success: false, error: '目標資料夾不存在' };
+      return { success: false, error: 'Target folder not found' };
     }
     for (const src of sourcePaths || []) {
       const resolvedSrc = path.resolve(String(src));
@@ -539,13 +539,13 @@ ipcMain.handle('fs:move-items', async (event, arg) => {
         resolvedTargetDir.toLowerCase() === resolvedSrc.toLowerCase() ||
         resolvedTargetDir.toLowerCase().startsWith(resolvedSrc.toLowerCase() + path.sep)
       ) {
-        return { success: false, error: '無法將資料夾移入自身或其子目錄' };
+        return { success: false, error: 'Cannot move a folder into itself or its subfolder' };
       }
       const baseName = path.basename(resolvedSrc);
       const destPath = path.join(resolvedTargetDir, baseName);
       if (resolvedSrc.toLowerCase() === destPath.toLowerCase()) continue;
       if (fs.existsSync(destPath)) {
-        return { success: false, error: `目標資料夾已存在同名項目: ${baseName}` };
+        return { success: false, error: `Target folder already contains: ${baseName}` };
       }
       try {
         fs.renameSync(resolvedSrc, destPath);
@@ -569,7 +569,7 @@ ipcMain.handle('fs:paste-items', async (event, arg) => {
   try {
     const resolvedTargetDir = path.resolve(String(targetDir));
     if (!fs.existsSync(resolvedTargetDir) || !fs.statSync(resolvedTargetDir).isDirectory()) {
-      return { success: false, error: '目標資料夾不存在' };
+      return { success: false, error: 'Target folder not found' };
     }
 
     function getUniqueDestPath(dir, name, isDir) {
@@ -590,7 +590,7 @@ ipcMain.handle('fs:paste-items', async (event, arg) => {
       const resolvedSrc = path.resolve(String(src));
       if (!fs.existsSync(resolvedSrc)) continue;
       if (resolvedTargetDir.toLowerCase().startsWith(resolvedSrc.toLowerCase() + path.sep)) {
-        return { success: false, error: '無法將資料夾複製或移入其子目錄內' };
+        return { success: false, error: 'Cannot copy or move a folder into its subfolder' };
       }
       const st = fs.statSync(resolvedSrc);
       const isDir = st.isDirectory();
@@ -697,7 +697,7 @@ function envKeyOf(ssh) {
 ipcMain.handle('model:list-environments', async () => {
   const hosts = piBridge?.sshManager?.getSavedHosts() || [];
   return [
-    { key: 'local', label: '本機', ssh: null },
+    { key: 'local', label: 'Local', ssh: null },
     ...hosts.map((h) => ({ key: envKeyOf(h), label: h.label || h.host, ssh: h })),
   ];
 });
@@ -713,7 +713,7 @@ function sshOfEnv(envKey) {
 async function applyProfilesToEnv(envKey) {
   const ssh = sshOfEnv(envKey);
   if (envKey !== 'local' && !ssh) {
-    return { envKey, success: false, error: '找不到此 SSH 主機的連線設定' };
+    return { envKey, success: false, error: 'SSH connection settings not found for this host' };
   }
   const res = await getProfileManager().applyEnv(envKey, ssh);
   if (res.success) {
@@ -781,7 +781,7 @@ ipcMain.handle('profile:select-for-conv', async (event, { convId, profileId }) =
   const pm = getProfileManager();
   if (!pm) return { success: false, error: 'Bridge not ready' };
   const profile = pm.loadState().profiles.find((p) => p.id === profileId);
-  if (!profile) return { success: false, error: '找不到此設定檔' };
+  if (!profile) return { success: false, error: 'Profile not found' };
   return piBridge.selectModelForConv(convId, {
     provider: pm.providerKeyOf(profile),
     modelId: profile.modelId,

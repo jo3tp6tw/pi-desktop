@@ -110,11 +110,11 @@ export const DiffToolCard: React.FC<{
             setOpen((v) => !v);
           }
         }}
-        title={open ? '收合' : '展開 diff'}
+        title={open ? 'Collapse' : 'Show diff'}
         className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors cursor-pointer select-none"
       >
-        <Icon size={13} className="text-sky-400 shrink-0" />
-        <span className="shrink-0 font-mono text-sky-400 font-semibold">{tool.name}</span>
+        <Icon size={13} className="text-fg-muted shrink-0" />
+        <span className="shrink-0 font-mono text-zinc-200 font-semibold">{tool.name}</span>
         {path ? (
           <span
             role="button"
@@ -142,7 +142,7 @@ export const DiffToolCard: React.FC<{
         {added > 0 && <span className="text-xs text-emerald-400 shrink-0 tabular-nums">+{added}</span>}
         {removed > 0 && <span className="text-xs text-danger shrink-0 tabular-nums">-{removed}</span>}
         {(running || failed) && (
-          <span className={`text-xs shrink-0 ${failed ? 'text-danger' : 'text-amber-400'}`}>
+          <span className={`text-xs shrink-0 ${failed ? 'text-danger' : 'text-warning'}`}>
             {tool.status}
           </span>
         )}
@@ -159,7 +159,7 @@ export const DiffToolCard: React.FC<{
             </div>
           )}
           {lines.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-fg-subtle italic">（沒有可顯示的差異）</div>
+            <div className="px-3 py-2 text-xs text-fg-subtle italic">No changes to show</div>
           ) : (
             <div className="max-h-[420px] overflow-auto">
               <table className="w-full border-collapse text-xs leading-[1.55] font-mono">

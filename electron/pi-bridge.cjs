@@ -411,7 +411,7 @@ class PiBridge {
     }
     await proc.ready;
     const res = await proc.setModel(provider, modelId);
-    if (!res || res.success === false) return { success: false, error: res?.error || '切換模型失敗' };
+    if (!res || res.success === false) return { success: false, error: res?.error || 'Could not switch model' };
     this.convModelSelections.set(convId, { provider, modelId, thinkingLevel: level });
     if (level) await proc.setThinkingLevel(level);
     return { success: true };
@@ -425,7 +425,7 @@ class PiBridge {
     if (!proc || proc.disposed) return { success: true, deferred: true };
     await proc.ready;
     const res = await proc.setThinkingLevel(level);
-    if (!res || res.success === false) return { success: false, error: res?.error || '切換思考等級失敗' };
+    if (!res || res.success === false) return { success: false, error: res?.error || 'Could not change thinking level' };
     return { success: true, level: proc.thinkingLevel };
   }
 
@@ -1069,7 +1069,7 @@ class PiBridge {
       const content = fs.readFileSync(filePath, 'utf-8');
       const parsed = this._parseSessionData(content);
       if (targetLeafId !== null && !parsed.byId.has(targetLeafId)) {
-        return { success: false, error: `找不到分支節點: ${targetLeafId}` };
+        return { success: false, error: `Branch node not found: ${targetLeafId}` };
       }
       const cursorEntry = {
         type: 'custom',
@@ -1100,7 +1100,7 @@ class PiBridge {
       const parsed = this._parseSessionData(content);
       const userEntry = this._resolveTargetUserEntry(parsed, targetSpec);
       if (!userEntry) {
-        return { success: false, error: '找不到目標訊息節點' };
+        return { success: false, error: 'Target message not found' };
       }
       const parentLeafId = userEntry.parentId ?? null;
       const cursorEntry = {
@@ -1130,13 +1130,13 @@ class PiBridge {
       const parsed = this._parseSessionData(content);
       const userEntry = this._resolveTargetUserEntry(parsed, targetSpec);
       if (!userEntry) {
-        return { success: false, error: '找不到要分支的目標訊息節點' };
+        return { success: false, error: 'Message to branch from not found' };
       }
 
       const { chain, header, labelsById, labelTimestampsById, isUserMessageEntry } = parsed;
       const userIdx = chain.findIndex((e) => e.id === userEntry.id);
       if (userIdx === -1) {
-        return { success: false, error: '目標訊息不在目前分支路徑上' };
+        return { success: false, error: 'Target message is not on the current branch' };
       }
 
       // 包含此使用者訊息與該回合後續的 AI 回覆/工具紀錄（直到下一則使用者訊息前）
@@ -1193,14 +1193,14 @@ class PiBridge {
 
       // 替新分支對話加上清楚的名稱後綴
       const meta = this.readSessionMeta(filePath);
-      const baseTitle = (meta.name || meta.firstUser || '對話').replace(/\s+/g, ' ').trim().slice(0, 45);
+      const baseTitle = (meta.name || meta.firstUser || 'Conversation').replace(/\s+/g, ' ').trim().slice(0, 45);
       const infoId = this._genEntryId(usedIds);
       const infoEntry = {
         type: 'session_info',
         id: infoId,
         parentId: prevId,
         timestamp: iso,
-        name: `${baseTitle} (分支)`,
+        name: `${baseTitle} (branch)`,
       };
 
       const outLines = [
@@ -1232,7 +1232,7 @@ class PiBridge {
       const parsed = this._parseSessionData(content);
       const userEntry = this._resolveTargetUserEntry(parsed, targetSpec);
       if (!userEntry) {
-        return { success: false, error: '找不到要標記書籤的訊息節點' };
+        return { success: false, error: 'Message to bookmark not found' };
       }
       const cleanLabel = targetSpec.label ? String(targetSpec.label).trim() : undefined;
       const labelEntry = {
@@ -1265,13 +1265,13 @@ class PiBridge {
       const parsed = this._parseSessionData(content);
       const userEntry = this._resolveTargetUserEntry(parsed, targetSpec);
       if (!userEntry) {
-        return { success: false, error: '找不到目標訊息節點' };
+        return { success: false, error: 'Target message not found' };
       }
 
       const { chain, byId, isUserMessageEntry } = parsed;
       const userIdx = chain.findIndex((e) => e.id === userEntry.id);
       if (userIdx === -1) {
-        return { success: false, error: '目標訊息不在目前分支路徑上' };
+        return { success: false, error: 'Target message is not on the current branch' };
       }
 
       // 收集此回合內所有可透過 context_edit 編輯的訊息（user + assistant + toolResult）
@@ -1445,7 +1445,7 @@ class PiBridge {
         if (code === 0 && fs.existsSync(outputPath)) {
           resolve({ success: true, path: outputPath });
         } else {
-          resolve({ success: false, error: stderr.trim() || `匯出程序結束碼 ${code}` });
+          resolve({ success: false, error: stderr.trim() || `Export exited with code ${code}` });
         }
       });
     });

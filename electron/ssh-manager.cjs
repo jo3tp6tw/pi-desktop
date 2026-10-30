@@ -260,7 +260,7 @@ class SshManager {
     return new Promise((resolve) => {
       const norm = this.normalizeSshConfig(ssh);
       if (!norm) {
-        return resolve({ success: false, error: '無效的 SSH 主機設定' });
+        return resolve({ success: false, error: 'Invalid SSH host settings' });
       }
 
       const wrappedJs = `
@@ -307,7 +307,7 @@ class SshManager {
         if (settled) return;
         settled = true;
         try { child.kill(); } catch {}
-        resolve({ success: false, error: 'SSH 連線逾時（請確認主機位址、網路或認證設定）' });
+        resolve({ success: false, error: 'SSH connection timed out (check the host, network or credentials)' });
       }, timeoutMs);
 
       child.stdout.on('data', (d) => { stdout += d.toString('utf-8'); });
@@ -317,7 +317,7 @@ class SshManager {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve({ success: false, error: `無法啟動系統 ssh：${err.message}` });
+        resolve({ success: false, error: `Could not start ssh: ${err.message}` });
       });
 
       child.on('close', (code) => {
@@ -334,18 +334,18 @@ class SshManager {
             if (parsed.ok) {
               return resolve({ success: true, data: parsed.data });
             }
-            return resolve({ success: false, error: parsed.error || '遠端執行錯誤' });
+            return resolve({ success: false, error: parsed.error || 'Remote execution error' });
           } catch (e) {
-            return resolve({ success: false, error: `解析遠端回應失敗：${e.message}` });
+            return resolve({ success: false, error: `Could not parse remote response: ${e.message}` });
           }
         }
 
-        const errText = stderr.trim() || stdout.trim() || `SSH 結束代碼 ${code}`;
+        const errText = stderr.trim() || stdout.trim() || `SSH exited with code ${code}`;
         if (errText.includes('REMOTE_NODE_MISSING')) {
-          return resolve({ success: false, error: '遠端主機找不到 node 指令，請確認遠端已安裝 Node.js 與 pi' });
+          return resolve({ success: false, error: 'node not found on the remote host; install Node.js and pi there' });
         }
         if (errText.toLowerCase().includes('permission denied')) {
-          return resolve({ success: false, error: `SSH 認證失敗 (Permission denied)：請確認 SSH Key 或輸入正確密碼` });
+          return resolve({ success: false, error: `SSH authentication failed (permission denied): check your SSH key or password` });
         }
         resolve({ success: false, error: errText });
       });
@@ -539,7 +539,7 @@ class SshManager {
       if (!fs.existsSync(currentPath)) {
         return {
           success: false,
-          error: '遠端目錄不存在: ' + currentPath,
+          error: 'Remote folder not found: ' + currentPath,
           currentPath: currentPath.replace(/\\\\/g, '/'),
           parentPath: path.dirname(currentPath) !== currentPath ? path.dirname(currentPath).replace(/\\\\/g, '/') : null,
           items: [],
@@ -618,11 +618,11 @@ class SshManager {
       const path = require('path');
       const resolved = path.resolve(String(filePath));
       if (!fs.existsSync(resolved)) {
-        throw new Error('找不到檔案: ' + resolved);
+        throw new Error('File not found: ' + resolved);
       }
       const st = fs.statSync(resolved);
       if (st.isDirectory()) {
-        throw new Error('目標路徑是資料夾而非檔案');
+        throw new Error('Path is a folder, not a file');
       }
       const name = path.basename(resolved);
       const ext = path.extname(name).toLowerCase();
@@ -722,11 +722,11 @@ class SshManager {
       const path = require('path');
       const cleanName = String(name || '').trim();
       if (!cleanName || cleanName.includes('/') || cleanName.includes('\\\\')) {
-        throw new Error('無效的名稱');
+        throw new Error('Invalid name');
       }
       const targetPath = path.join(path.resolve(String(parentDir)), cleanName);
       if (fs.existsSync(targetPath)) {
-        throw new Error('已存在同名檔案或資料夾: ' + cleanName);
+        throw new Error('An item with this name already exists: ' + cleanName);
       }
       if (isDirectory) {
         fs.mkdirSync(targetPath, { recursive: true });
@@ -747,7 +747,7 @@ class SshManager {
       const path = require('path');
       const cleanName = String(newName || '').trim();
       if (!cleanName || cleanName.includes('/') || cleanName.includes('\\\\')) {
-        throw new Error('無效的名稱');
+        throw new Error('Invalid name');
       }
       const resolvedOld = path.resolve(String(oldPath));
       const newPath = path.join(path.dirname(resolvedOld), cleanName);
@@ -755,7 +755,7 @@ class SshManager {
         return { path: newPath.replace(/\\\\/g, '/') };
       }
       if (resolvedOld.toLowerCase() !== newPath.toLowerCase() && fs.existsSync(newPath)) {
-        throw new Error('目標名稱已存在: ' + cleanName);
+        throw new Error('Name already exists: ' + cleanName);
       }
       fs.renameSync(resolvedOld, newPath);
       return { path: newPath.replace(/\\\\/g, '/') };
@@ -772,19 +772,19 @@ class SshManager {
       const path = require('path');
       const resolvedTargetDir = path.resolve(String(targetDir));
       if (!fs.existsSync(resolvedTargetDir) || !fs.statSync(resolvedTargetDir).isDirectory()) {
-        throw new Error('目標資料夾不存在');
+        throw new Error('Target folder not found');
       }
       for (const src of sourcePaths || []) {
         const resolvedSrc = path.resolve(String(src));
         if (!fs.existsSync(resolvedSrc)) continue;
         if (resolvedTargetDir === resolvedSrc || resolvedTargetDir.startsWith(resolvedSrc + path.sep)) {
-          throw new Error('無法將資料夾移入自身或其子目錄');
+          throw new Error('Cannot move a folder into itself or its subfolder');
         }
         const baseName = path.basename(resolvedSrc);
         const destPath = path.join(resolvedTargetDir, baseName);
         if (resolvedSrc === destPath) continue;
         if (fs.existsSync(destPath)) {
-          throw new Error('目標資料夾已存在同名項目: ' + baseName);
+          throw new Error('Target folder already contains: ' + baseName);
         }
         try {
           fs.renameSync(resolvedSrc, destPath);
@@ -807,7 +807,7 @@ class SshManager {
       const path = require('path');
       const resolvedTargetDir = path.resolve(String(targetDir));
       if (!fs.existsSync(resolvedTargetDir) || !fs.statSync(resolvedTargetDir).isDirectory()) {
-        throw new Error('目標資料夾不存在');
+        throw new Error('Target folder not found');
       }
 
       function getUniqueDestPath(dir, name, isDir) {
@@ -828,7 +828,7 @@ class SshManager {
         const resolvedSrc = path.resolve(String(src));
         if (!fs.existsSync(resolvedSrc)) continue;
         if (resolvedTargetDir.startsWith(resolvedSrc + path.sep)) {
-          throw new Error('無法將資料夾複製或移入其子目錄內');
+          throw new Error('Cannot copy or move a folder into its subfolder');
         }
         const st = fs.statSync(resolvedSrc);
         const isDir = st.isDirectory();
@@ -1324,7 +1324,7 @@ class SshManager {
       const content = fs.readFileSync(remoteFilePath, 'utf-8');
       const parsed = parseSessionData(content);
       if (targetLeafId !== null && !parsed.byId.has(targetLeafId)) {
-        throw new Error('找不到分支節點: ' + targetLeafId);
+        throw new Error('Branch node not found: ' + targetLeafId);
       }
       const cursorEntry = {
         type: 'custom',
@@ -1349,7 +1349,7 @@ class SshManager {
       const content = fs.readFileSync(remoteFilePath, 'utf-8');
       const parsed = parseSessionData(content);
       const userEntry = resolveTargetUserEntry(parsed, targetSpec);
-      if (!userEntry) throw new Error('找不到目標訊息節點');
+      if (!userEntry) throw new Error('Target message not found');
       const parentLeafId = userEntry.parentId ?? null;
       const cursorEntry = {
         type: 'custom',
@@ -1374,11 +1374,11 @@ class SshManager {
       const content = fs.readFileSync(remoteFilePath, 'utf-8');
       const parsed = parseSessionData(content);
       const userEntry = resolveTargetUserEntry(parsed, targetSpec);
-      if (!userEntry) throw new Error('找不到要分支的目標訊息節點');
+      if (!userEntry) throw new Error('Message to branch from not found');
 
       const { chain, header, labelsById, labelTimestampsById, isUserMessageEntry } = parsed;
       const userIdx = chain.findIndex(e => e.id === userEntry.id);
-      if (userIdx === -1) throw new Error('目標訊息不在目前分支路徑上');
+      if (userIdx === -1) throw new Error('Target message is not on the current branch');
 
       let turnEndIdx = userIdx;
       for (let i = userIdx + 1; i < chain.length; i++) {
@@ -1430,15 +1430,15 @@ class SshManager {
         }
       }
 
-      let baseTitle = '對話';
+      let baseTitle = 'Conversation';
       for (let i = parsed.entries.length - 1; i >= 0; i--) {
         const e = parsed.entries[i];
         if (e.type === 'session_info' && e.name) { baseTitle = e.name; break; }
       }
-      if (baseTitle === '對話') {
+      if (baseTitle === 'Conversation') {
         const firstU = parsed.entries.find(isUserMessageEntry);
         if (firstU) {
-          baseTitle = extractText(firstU.type === 'custom_message' ? firstU.content : firstU.message?.content) || '對話';
+          baseTitle = extractText(firstU.type === 'custom_message' ? firstU.content : firstU.message?.content) || 'Conversation';
         }
       }
       baseTitle = baseTitle.replace(/\\s+/g, ' ').trim().slice(0, 45);
@@ -1448,7 +1448,7 @@ class SshManager {
         id: genEntryId(usedIds),
         parentId: prevId,
         timestamp: iso,
-        name: baseTitle + ' (分支)',
+        name: baseTitle + ' (branch)',
       };
 
       const outLines = [
@@ -1475,7 +1475,7 @@ class SshManager {
       const content = fs.readFileSync(remoteFilePath, 'utf-8');
       const parsed = parseSessionData(content);
       const userEntry = resolveTargetUserEntry(parsed, targetSpec);
-      if (!userEntry) throw new Error('找不到要標記書籤的訊息節點');
+      if (!userEntry) throw new Error('Message to bookmark not found');
       const cleanLabel = targetSpec.label ? String(targetSpec.label).trim() : undefined;
       const labelEntry = {
         type: 'label',
@@ -1501,11 +1501,11 @@ class SshManager {
       const content = fs.readFileSync(remoteFilePath, 'utf-8');
       const parsed = parseSessionData(content);
       const userEntry = resolveTargetUserEntry(parsed, targetSpec);
-      if (!userEntry) throw new Error('找不到目標訊息節點');
+      if (!userEntry) throw new Error('Target message not found');
 
       const { chain, byId, isUserMessageEntry } = parsed;
       const userIdx = chain.findIndex(e => e.id === userEntry.id);
-      if (userIdx === -1) throw new Error('目標訊息不在目前分支路徑上');
+      if (userIdx === -1) throw new Error('Target message is not on the current branch');
 
       const turnEditableEntries = [];
       for (let i = userIdx; i < chain.length; i++) {
@@ -1657,7 +1657,7 @@ class SshManager {
         return { content: html };
       } catch (err) {
         try { fs.rmSync(tmpOut, { force: true }); } catch {}
-        throw new Error('遠端匯出 HTML 失敗：' + (err.message || err));
+        throw new Error('Remote HTML export failed: ' + (err.message || err));
       }
     }`;
     const res = await this.execRemoteNode(ssh, fnSource, { remoteFilePath, format }, 30000);

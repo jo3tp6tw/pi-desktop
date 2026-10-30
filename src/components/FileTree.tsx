@@ -55,6 +55,9 @@ interface ArboristFileNode extends FileItem {
   isParentLink?: boolean;
 }
 
+// 「1 item」/「3 items」
+const itemCount = (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`;
+
 function formatBytes(bytes?: number): string {
   if (bytes === undefined || bytes === null || Number.isNaN(bytes)) return '';
   if (bytes < 1024) return `${bytes} B`;
@@ -264,7 +267,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
       } catch (e: any) {
         if (seq !== dirRequestSeqRef.current) return;
-        setDirError(e?.message || '讀取目錄失敗');
+        setDirError(e?.message || 'Could not read folder');
       } finally {
         if (seq === dirRequestSeqRef.current) setDirLoading(false);
       }
@@ -326,7 +329,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         // 讀檔期間已切換環境：丟棄結果
         if (envGen !== envGenRef.current) return;
         if (!res || !res.success) {
-          setFileError(res?.error || '無法讀取檔案');
+          setFileError(res?.error || 'Could not read file');
           return;
         }
         setActiveFile(res);
@@ -341,7 +344,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
       } catch (e: any) {
         if (envGen !== envGenRef.current) return;
-        setFileError(e?.message || '讀取檔案失敗');
+        setFileError(e?.message || 'Could not read file');
       } finally {
         if (envGen === envGenRef.current) setFileLoading(false);
       }
@@ -397,7 +400,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         if (cancelled) return;
 
         // 若目標實際上是資料夾，直接切換檔案樹至該資料夾
-        if (!res?.success && res?.error && res.error.includes('資料夾')) {
+        if (!res?.success && res?.error && res.error.includes('is a folder')) {
           setActiveFile(null);
           setFileError(null);
           loadDirectory(resolvedPath);
@@ -405,7 +408,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
 
         if (!res || !res.success) {
-          showOpToast(res?.error || `找不到路徑：${raw}`);
+          showOpToast(res?.error || `Path not found: ${raw}`);
           return;
         }
 
@@ -431,7 +434,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
       } catch (e: any) {
         if (!cancelled) {
-          showOpToast(e?.message || `無法開啟：${raw}`);
+          showOpToast(e?.message || `Could not open: ${raw}`);
         }
       }
     })();
@@ -469,14 +472,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
               }
             : null
         );
-        setSaveToast('已儲存');
+        setSaveToast('Saved');
         setTimeout(() => setSaveToast(null), 1800);
       } else {
-        setSaveToast(`儲存失敗: ${res?.error || '未知錯誤'}`);
+        setSaveToast(`Save failed: ${res?.error || 'unknown error'}`);
         setTimeout(() => setSaveToast(null), 3000);
       }
     } catch (e: any) {
-      setSaveToast(`儲存失敗: ${e?.message || '未知錯誤'}`);
+      setSaveToast(`Save failed: ${e?.message || 'unknown error'}`);
       setTimeout(() => setSaveToast(null), 3000);
     } finally {
       setSaving(false);
@@ -554,10 +557,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
         ssh,
       });
       if (res?.success) {
-        showOpToast(`已重新命名為「${trimmed}」`);
         await loadDirectory(currentDirRef.current);
       } else {
-        showOpToast(`重新命名失敗：${res?.error || '未知錯誤'}`);
+        showOpToast(`Rename failed: ${res?.error || 'unknown error'}`);
       }
     },
     [ssh, loadDirectory, showOpToast]
@@ -576,11 +578,11 @@ export const FileTree: React.FC<FileTreeProps> = ({
         ssh,
       });
       if (res?.success) {
-        const destName = parentId === parentDir ? '上一層目錄' : parentId.split(/[\\/]/).pop() || parentId;
-        showOpToast(`已移動 ${validSources.length} 個項目至「${destName}」`);
+        const destName = parentId === parentDir ? 'parent folder' : parentId.split(/[\\/]/).pop() || parentId;
+        showOpToast(`Moved ${itemCount(validSources.length)} to ${destName}`);
         await loadDirectory(currentDirRef.current);
       } else {
-        showOpToast(`移動失敗：${res?.error || '未知錯誤'}`);
+        showOpToast(`Move failed: ${res?.error || 'unknown error'}`);
       }
     },
     [ssh, parentDir, loadDirectory, showOpToast]
@@ -598,8 +600,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
       });
       showOpToast(
         mode === 'copy'
-          ? `已複製 ${valid.length} 個項目`
-          : `已剪下 ${valid.length} 個項目（可至目標目錄貼上）`
+          ? `Copied ${itemCount(valid.length)}`
+          : `Cut ${itemCount(valid.length)}`
       );
     },
     [ssh?.id, showOpToast]
@@ -609,7 +611,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
     async (targetDirPath?: string) => {
       if (!ipcRenderer || !fileClipboard || fileClipboard.paths.length === 0) return;
       if ((fileClipboard.sshId || undefined) !== (ssh?.id || undefined)) {
-        showOpToast('目前僅支援在同一台主機內複製貼上檔案');
+        showOpToast('Copy and paste only works within the same host');
         return;
       }
       const destDir = targetDirPath || currentDirRef.current;
@@ -620,13 +622,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
         ssh,
       });
       if (res?.success) {
-        showOpToast(`已貼上 ${fileClipboard.paths.length} 個項目`);
+        showOpToast(`Pasted ${itemCount(fileClipboard.paths.length)}`);
         if (fileClipboard.mode === 'cut') {
           setFileClipboard(null);
         }
         await loadDirectory(currentDirRef.current);
       } else {
-        showOpToast(`貼上失敗：${res?.error || '未知錯誤'}`);
+        showOpToast(`Paste failed: ${res?.error || 'unknown error'}`);
       }
     },
     [fileClipboard, ssh, loadDirectory, showOpToast]
@@ -650,13 +652,12 @@ export const FileTree: React.FC<FileTreeProps> = ({
       ssh,
     });
     if (res?.success) {
-      showOpToast(isDir ? `已建立資料夾「${name}」` : `已建立檔案「${name}」`);
       await loadDirectory(currentDirRef.current);
       if (!isDir && res.path) {
         openFile(res.path, name);
       }
     } else {
-      showOpToast(`建立失敗：${res?.error || '未知錯誤'}`);
+      showOpToast(`Create failed: ${res?.error || 'unknown error'}`);
     }
   }, [creatingItem, ssh, loadDirectory, openFile, showOpToast]);
 
@@ -673,10 +674,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
       ssh,
     });
     if (res?.success) {
-      showOpToast(res.trashed ? `已將 ${paths.length} 個項目移至資源回收筒` : `已刪除 ${paths.length} 個項目`);
+      showOpToast(res.trashed ? `Moved ${itemCount(paths.length)} to Recycle Bin` : `Deleted ${itemCount(paths.length)}`);
       await loadDirectory(currentDirRef.current);
     } else {
-      showOpToast(`刪除失敗：${res?.error || '未知錯誤'}`);
+      showOpToast(`Delete failed: ${res?.error || 'unknown error'}`);
     }
   }, [deleteTargets, ssh, loadDirectory, showOpToast]);
 
@@ -740,7 +741,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
       if (singleItem) {
         menuItems.push({
-          label: singleItem.isDirectory ? '進入資料夾' : '開啟檔案',
+          label: 'Open',
           icon: singleItem.isDirectory ? <FolderOpenIcon size={14} /> : <FileCode size={14} />,
           onClick: () => {
             if (singleItem.isDirectory) loadDirectory(singleItem.path);
@@ -752,12 +753,12 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
       menuItems.push(
         {
-          label: '新增檔案…',
+          label: 'New file…',
           icon: <FilePlus size={14} />,
           onClick: () => setCreatingItem({ isDirectory: false, value: '' }),
         },
         {
-          label: '新增資料夾…',
+          label: 'New folder…',
           icon: <FolderPlus size={14} />,
           onClick: () => setCreatingItem({ isDirectory: true, value: '' }),
         }
@@ -767,7 +768,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         menuItems.push({ separator: true });
         if (isSingle && singleItem) {
           menuItems.push({
-            label: '重新命名 (F2)',
+            label: 'Rename (F2)',
             icon: <Pencil size={14} />,
             onClick: () => {
               treeRef.current?.edit(singleItem.id);
@@ -776,12 +777,12 @@ export const FileTree: React.FC<FileTreeProps> = ({
         }
         menuItems.push(
           {
-            label: selectedData.length > 1 ? `複製 (${selectedData.length} 個項目)` : '複製 (Ctrl+C)',
+            label: selectedData.length > 1 ? `Copy ${itemCount(selectedData.length)}` : 'Copy (Ctrl+C)',
             icon: <Copy size={14} />,
             onClick: () => handleCopyOrCutItems(selectedData, 'copy'),
           },
           {
-            label: selectedData.length > 1 ? `剪下 (${selectedData.length} 個項目)` : '剪下 (Ctrl+X)',
+            label: selectedData.length > 1 ? `Cut ${itemCount(selectedData.length)}` : 'Cut (Ctrl+X)',
             icon: <Scissors size={14} />,
             onClick: () => handleCopyOrCutItems(selectedData, 'cut'),
           }
@@ -792,8 +793,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
         menuItems.push({
           label:
             singleItem && singleItem.isDirectory
-              ? `貼上至「${singleItem.name}」`
-              : `貼上 (${fileClipboard!.paths.length} 個項目)`,
+              ? `Paste into ${singleItem.name}`
+              : `Paste ${itemCount(fileClipboard!.paths.length)}`,
           icon: <ClipboardPaste size={14} />,
           onClick: () =>
             handlePasteItems(singleItem && singleItem.isDirectory ? singleItem.path : currentDirRef.current),
@@ -803,17 +804,17 @@ export const FileTree: React.FC<FileTreeProps> = ({
       if (isSingle && singleItem) {
         menuItems.push({ separator: true });
         menuItems.push({
-          label: '複製完整路徑',
+          label: 'Copy full path',
           icon: <CopyPathIcon size={14} />,
           onClick: async () => {
             const fullText = ssh ? `${ssh.host}:${singleItem.path}` : singleItem.path;
             if (ipcRenderer) await ipcRenderer.invoke('clipboard:write', fullText);
-            showOpToast('已複製路徑');
+            showOpToast('Path copied');
           },
         });
         if (!ssh) {
           menuItems.push({
-            label: '在檔案總管中顯示',
+            label: 'Reveal in File Explorer',
             icon: <FolderOpen size={14} />,
             onClick: () => handleShowInFolder(singleItem.path),
           });
@@ -823,7 +824,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
       if (selectedData.length > 0) {
         menuItems.push({ separator: true });
         menuItems.push({
-          label: selectedData.length > 1 ? `刪除 (${selectedData.length} 個項目)` : '刪除 (Delete)',
+          label: selectedData.length > 1 ? `Delete ${itemCount(selectedData.length)}` : 'Delete (Del)',
           icon: <Trash2 size={14} />,
           danger: true,
           onClick: () => setDeleteTargets(selectedData),
@@ -856,10 +857,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
     const displayedPath = activeFile ? activeFile.filePath : currentDir;
     const canGoUp = isViewingFile || (!!parentDir && !dirLoading);
     const upTitle = isViewingFile
-      ? `返回上一層檔案樹 (${currentDir})`
+      ? 'Back to folder'
       : parentDir
-        ? `上一層目錄 (${parentDir})`
-        : '已在最頂層根目錄';
+        ? 'Up one level'
+        : 'Already at root';
 
     const handleGoUp = () => {
       if (isViewingFile) {
@@ -903,7 +904,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 }
               }}
               className="field rounded px-2 py-0.5 text-xs font-mono"
-              placeholder="輸入目錄路徑..."
+              placeholder="Folder path"
             />
           ) : (
             <div
@@ -911,7 +912,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 setPathInput(currentDir);
                 setIsEditingPath(true);
               }}
-              title={`${ssh ? `[SSH ${ssh.host}] ` : ''}${displayedPath}\n（點擊可直接輸入目錄路徑跳轉）`}
+              title={`${ssh ? `${ssh.host}:` : ''}${displayedPath}`}
               className="px-2 py-1 rounded bg-zinc-900/80 hover:bg-zinc-800/80 border border-zinc-800/80 text-xs font-mono text-zinc-200 truncate cursor-text transition"
             >
               {displayedPath}
@@ -923,7 +924,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         <button
           onClick={() => navigateDirectoryFromHeader(currentWorkspace)}
           disabled={isAtWorkspaceRoot && !isViewingFile}
-          title={`回到工作區根目錄 (${currentWorkspace})`}
+          title="Go to workspace root"
           className="icon-btn p-1.5"
         >
           <Home size={13} />
@@ -932,7 +933,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
         {/* 顯示 / 隱藏 . 開頭隱藏檔切換按鈕 */}
         <button
           onClick={toggleShowHidden}
-          title={showHidden ? '目前顯示隱藏檔（點擊隱藏 . 開頭檔案）' : '目前隱藏 . 開頭檔案（點擊顯示隱藏檔）'}
+          title="Show hidden files"
           aria-pressed={showHidden}
           className="icon-btn p-1.5"
         >
@@ -948,10 +949,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
               loadDirectory(currentDir);
             }
           }}
-          title={activeFile ? '重新載入目前檔案' : '重新整理目前目錄'}
+          title={activeFile ? 'Reload file' : 'Refresh'}
           className="icon-btn p-1.5"
         >
-          <RefreshCw size={13} className={dirLoading || fileLoading ? 'animate-spin text-amber-400' : ''} />
+          <RefreshCw size={13} className={dirLoading || fileLoading ? 'animate-spin' : ''} />
         </button>
       </div>
     );
@@ -989,8 +990,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 </span>
                 {isDirty && (
                   <span
-                    title="有尚未儲存的變更 (Ctrl+S)"
-                    className="w-2 h-2 rounded-full bg-amber-400 shrink-0"
+                    title="Unsaved changes"
+                    className="w-2 h-2 rounded-full bg-warning shrink-0"
                   />
                 )}
                 {activeFile.size > 0 && (
@@ -1016,7 +1017,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded p-0.5 mr-0.5">
                   <button
                     onClick={() => setViewMode('preview')}
-                    title="渲染預覽"
                     className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs transition ${
                       viewMode === 'preview'
                         ? 'bg-zinc-700 text-zinc-100 font-medium'
@@ -1024,11 +1024,10 @@ export const FileTree: React.FC<FileTreeProps> = ({
                     }`}
                   >
                     <BookOpen size={11} />
-                    <span>預覽</span>
+                    <span>Preview</span>
                   </button>
                   <button
                     onClick={() => setViewMode('code')}
-                    title="Monaco 原始碼編輯"
                     className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs transition ${
                       viewMode === 'code'
                         ? 'bg-zinc-700 text-zinc-100 font-medium'
@@ -1036,7 +1035,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                     }`}
                   >
                     <Code size={11} />
-                    <span>原始碼</span>
+                    <span>Source</span>
                   </button>
                 </div>
               )}
@@ -1045,7 +1044,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               {isCodeEditorVisible && (
                 <button
                   onClick={toggleWordWrap}
-                  title={wordWrap ? '關閉自動折行 (Word Wrap)' : '開啟自動折行 (Word Wrap)'}
+                  title="Word wrap"
                   aria-pressed={wordWrap}
                   className="icon-btn"
                 >
@@ -1058,14 +1057,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 <>
                   <button
                     onClick={() => monacoEditorRef.current?.undo()}
-                    title="倒退 / 復原 (Ctrl+Z)"
+                    title="Undo (Ctrl+Z)"
                     className="icon-btn"
                   >
                     <Undo2 size={13} />
                   </button>
                   <button
                     onClick={() => monacoEditorRef.current?.redo()}
-                    title="向前 / 重做 (Ctrl+Y)"
+                    title="Redo (Ctrl+Y)"
                     className="icon-btn"
                   >
                     <Redo2 size={13} />
@@ -1078,7 +1077,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 <button
                   onClick={handleSaveFile}
                   disabled={saving || !isDirty}
-                  title="儲存檔案 (Ctrl+S)"
+                  title="Save (Ctrl+S)"
                   className={`icon-btn ${
                     isDirty ? 'bg-primary-solid text-white shadow-sm hover:bg-primary-solid hover:text-white hover:brightness-110' : ''
                   }`}
@@ -1090,7 +1089,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               {/* 複製內容（或複製路徑） */}
               <button
                 onClick={handleCopyContent}
-                title={activeFile.content !== undefined ? '複製檔案內容' : '複製檔案路徑'}
+                title={activeFile.content !== undefined ? 'Copy contents' : 'Copy path'}
                 className="icon-btn"
               >
                 {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
@@ -1099,7 +1098,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               {/* 重新讀取檔案 */}
               <button
                 onClick={() => openFile(activeFile.filePath, activeFile.name)}
-                title="重新載入檔案"
+                title="Reload file"
                 className="icon-btn"
               >
                 <RefreshCw size={13} />
@@ -1109,7 +1108,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               {!ssh && (
                 <button
                   onClick={() => handleShowInFolder(activeFile.filePath)}
-                  title="在系統檔案總管中顯示"
+                  title="Reveal in File Explorer"
                   className="icon-btn"
                 >
                   <FolderOpen size={13} />
@@ -1121,9 +1120,9 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
         {/* 超大檔案截斷提示 */}
         {activeFile?.truncated && (
-          <div className="px-3 py-1.5 bg-amber-500/10 border-b border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+          <div className="px-3 py-1.5 bg-warning/10 border-b border-warning/30 text-warning text-xs flex items-center gap-2">
             <AlertCircle size={14} className="shrink-0" />
-            <span>檔案超過 2 MB，目前僅預覽前 2 MB 內容（唯讀模式，避免覆寫損毀原檔）。</span>
+            <span>Larger than 2 MB — showing the first 2 MB, read-only.</span>
           </div>
         )}
 
@@ -1131,21 +1130,21 @@ export const FileTree: React.FC<FileTreeProps> = ({
         <div className="flex-1 overflow-hidden relative select-text">
           {fileLoading ? (
             <div className="h-full flex items-center justify-center gap-2 text-xs text-zinc-400">
-              <Loader2 size={15} className="animate-spin text-amber-400" />
-              <span>正在讀取檔案...</span>
+              <Loader2 size={15} className="animate-spin" />
+              <span>Loading file…</span>
             </div>
           ) : fileError ? (
             <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
               <AlertCircle size={28} className="text-danger" />
-              <div className="text-sm text-zinc-300 font-medium">無法開啟檔案</div>
+              <div className="text-sm text-zinc-300 font-medium">Could not open file</div>
               <div className="text-xs text-fg-subtle font-mono break-all max-w-sm">{fileError}</div>
             </div>
           ) : activeFile?.kind === 'binary' ? (
             <div className="h-full flex flex-col items-center justify-center p-6 text-center gap-3">
               <File size={32} className="text-fg-subtle" />
-              <div className="text-sm text-zinc-300 font-medium">二進位或大型媒體檔案</div>
+              <div className="text-sm text-zinc-300 font-medium">Binary file</div>
               <div className="text-xs text-fg-subtle">
-                檔案大小：{formatBytes(activeFile.size)}。此格式無法直接以文字編輯器開啟。
+                {formatBytes(activeFile.size)}
               </div>
               {!ssh && (
                 <button
@@ -1153,7 +1152,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   className="mt-1 px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 flex items-center gap-1.5 transition"
                 >
                   <FolderOpen size={13} />
-                  <span>在檔案總管中顯示</span>
+                  <span>Reveal in File Explorer</span>
                 </button>
               )}
             </div>
@@ -1162,12 +1161,12 @@ export const FileTree: React.FC<FileTreeProps> = ({
               {/* 圖片預覽控制列 */}
               <div className="h-8 px-3 bg-surface-2 border-b border-line flex items-center justify-between text-xs text-zinc-400 select-none">
                 <span className="text-2xs tabular-nums">
-                  {imageDimensions ? `${imageDimensions.w} × ${imageDimensions.h} px` : '圖片預覽'}
+                  {imageDimensions ? `${imageDimensions.w} × ${imageDimensions.h} px` : 'Image'}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setImageZoom((z) => Math.max(25, z - 25))}
-                    title="縮小"
+                    title="Zoom out"
                     className="icon-btn"
                   >
                     <ZoomOut size={13} />
@@ -1175,14 +1174,14 @@ export const FileTree: React.FC<FileTreeProps> = ({
                   <span className="text-2xs tabular-nums w-12 text-center">{imageZoom}%</span>
                   <button
                     onClick={() => setImageZoom((z) => Math.min(400, z + 25))}
-                    title="放大"
+                    title="Zoom in"
                     className="icon-btn"
                   >
                     <ZoomIn size={13} />
                   </button>
                   <button
                     onClick={() => setImageZoom(100)}
-                    title="重設縮放 (100%)"
+                    title="Reset zoom"
                     className="icon-btn"
                   >
                     <RotateCcw size={12} />
@@ -1227,8 +1226,8 @@ export const FileTree: React.FC<FileTreeProps> = ({
             <Suspense
               fallback={
                 <div className="h-full flex items-center justify-center gap-2 text-xs text-fg-subtle">
-                  <Loader2 size={14} className="animate-spin text-amber-400" />
-                  <span>載入 Monaco Editor...</span>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Loading editor…</span>
                 </div>
               }
             >
@@ -1277,7 +1276,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
               if (e.key === 'Enter') submitCreateItem();
               else if (e.key === 'Escape') setCreatingItem(null);
             }}
-            placeholder={creatingItem.isDirectory ? '輸入新資料夾名稱 (Enter 建立)…' : '輸入新檔案名稱 (Enter 建立)…'}
+            placeholder={creatingItem.isDirectory ? 'New folder name' : 'New file name'}
             className="field w-auto min-w-0 flex-1 rounded px-2 py-0.5 text-xs font-mono"
           />
         </div>
@@ -1296,17 +1295,17 @@ export const FileTree: React.FC<FileTreeProps> = ({
               onClick={() => loadDirectory(currentWorkspace)}
               className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-200 transition"
             >
-              返回工作區根目錄
+              Back to workspace root
             </button>
           </div>
         ) : dirLoading && items.length === 0 ? (
           <div className="h-32 flex items-center justify-center gap-2 text-xs text-fg-subtle">
-            <Loader2 size={14} className="animate-spin text-amber-400" />
-            <span>正在讀取目錄...</span>
+            <Loader2 size={14} className="animate-spin" />
+            <span>Loading folder…</span>
           </div>
         ) : treeData.length === 0 ? (
           <div className="py-8 text-center text-xs text-fg-subtle">
-            此目錄下沒有檔案（按右鍵可新增檔案或資料夾）
+            Empty folder
           </div>
         ) : (
           <Tree<ArboristFileNode>
@@ -1369,7 +1368,7 @@ export const FileTree: React.FC<FileTreeProps> = ({
                     }
                   }}
                   onContextMenu={(e) => openNodeContextMenu(e, item)}
-                  title={item.isParentLink ? `返回上一層目錄 (${item.path})\n（亦可將檔案拖曳至此移往上一層）` : item.path}
+                  title={item.isParentLink ? 'Up one level' : item.path}
                   className={`mx-1.5 px-2 rounded flex items-center justify-between text-sm cursor-pointer transition ${
                     node.willReceiveDrop
                       ? 'bg-primary/25 ring-1 ring-primary text-white'
@@ -1458,23 +1457,23 @@ export const FileTree: React.FC<FileTreeProps> = ({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <h3 className="text-sm font-semibold text-danger mb-2 flex items-center gap-2">
-              <AlertTriangle size={15} /> 確認刪除
+              <AlertTriangle size={15} /> Delete
             </h3>
             <p className="text-sm text-zinc-300 leading-relaxed">
               {deleteTargets.length === 1 ? (
                 <>
-                  確定要刪除「<span className="font-mono text-zinc-100">{deleteTargets[0].name}</span>」嗎？
+                  Delete “<span className="font-mono text-zinc-100">{deleteTargets[0].name}</span>”?
                 </>
               ) : (
                 <>
-                  確定要刪除選取的 <span className="tabular-nums text-zinc-100">{deleteTargets.length}</span> 個項目嗎？
+                  Delete <span className="tabular-nums text-zinc-100">{deleteTargets.length}</span> selected items?
                 </>
               )}
               <br />
               <span className="text-xs text-fg-subtle">
                 {ssh
-                  ? '注意：遠端 SSH 檔案刪除後無法從回收筒還原。'
-                  : '本機檔案會優先移至系統資源回收筒。'}
+                  ? 'Remote files can’t be restored after deletion.'
+                  : 'Local files are moved to the Recycle Bin.'}
               </span>
             </p>
             <div className="mt-4 flex justify-end gap-2">
@@ -1482,13 +1481,13 @@ export const FileTree: React.FC<FileTreeProps> = ({
                 onClick={() => setDeleteTargets(null)}
                 className="btn-ghost"
               >
-                取消
+                Cancel
               </button>
               <button
                 onClick={confirmDeleteItems}
                 className="btn-danger"
               >
-                刪除
+                Delete
               </button>
             </div>
           </div>

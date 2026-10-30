@@ -121,7 +121,7 @@ class TerminalManager {
 
   create({ shellId, cwd, cols, rows, ssh } = {}) {
     const ptyLib = ensurePty();
-    if (!ptyLib) return { success: false, error: `node-pty 無法載入：${ptyLoadError?.message || 'unknown'}` };
+    if (!ptyLib) return { success: false, error: `node-pty failed to load: ${ptyLoadError?.message || 'unknown'}` };
 
     // 若為 SSH 遠端專案且未強制指定本機 shellId，直接開啟遠端 SSH 互動式終端機
     if (ssh && ssh.host && !shellId) {

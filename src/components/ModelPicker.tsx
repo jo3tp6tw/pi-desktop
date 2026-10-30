@@ -64,18 +64,18 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
     <div ref={ref} className="relative flex items-center gap-1">
       <button
         onClick={() => setMenu((m) => (m === 'profile' ? null : 'profile'))}
-        title={`切換「${envLabel || '本機'}」的模型設定檔`}
+        title={`Model profile · ${envLabel || 'Local'}`}
         className={`${pill} text-zinc-300 ${menu === 'profile' ? 'bg-zinc-800 border-zinc-700/60' : ''}`}
       >
         <Cpu size={12} className={envLabel ? 'text-cyan-400' : 'text-primary'} />
-        <span className="truncate max-w-[200px]">{activeProfile?.name || modelInfo || '模型載入中'}</span>
+        <span className="truncate max-w-[200px]">{activeProfile?.name || modelInfo || 'Loading model…'}</span>
         <ChevronDown size={11} className="text-fg-subtle" />
       </button>
 
       <button
         onClick={() => canThink && setMenu((m) => (m === 'thinking' ? null : 'thinking'))}
         disabled={!canThink}
-        title={canThink ? '切換思考強度' : '目前模型不支援思考'}
+        title={canThink ? 'Thinking level' : 'This model does not support thinking'}
         className={`${pill} disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent ${
           level !== 'off' && canThink ? 'text-primary' : 'text-zinc-400'
         } ${menu === 'thinking' ? 'bg-zinc-800 border-zinc-700/60' : ''}`}
@@ -87,9 +87,9 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
 
       {menu === 'profile' && (
         <div className="absolute left-0 bottom-full mb-2 w-72 z-30 rounded-xl border border-zinc-700/80 bg-overlay shadow-2xl py-1.5 text-xs">
-          <div className="px-3 py-1 text-2xs text-fg-subtle">「{envLabel || '本機'}」已啟用的模型設定檔</div>
+          <div className="px-3 py-1 text-2xs text-fg-subtle">{envLabel || 'Local'} profiles</div>
           {profiles.length === 0 && (
-            <div className="px-3 py-2 text-zinc-400">此環境還沒有啟用任何設定檔</div>
+            <div className="px-3 py-2 text-zinc-400">No profiles enabled</div>
           )}
           {profiles.map((p) => {
             const active = p.id === activeProfileId;
@@ -106,7 +106,7 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
                 <span className="min-w-0">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate font-medium">{p.name}</span>
-                    {p.isDefault && <span className="text-2xs text-amber-300/90">預設</span>}
+                    {p.isDefault && <span className="text-2xs text-fg-subtle">Default</span>}
                   </span>
                   <span className="block truncate text-2xs text-fg-subtle font-mono">{p.subtitle}</span>
                 </span>
@@ -122,7 +122,7 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
               className="w-full text-left px-3 py-1.5 flex items-center gap-2 text-zinc-300 hover:bg-zinc-800/80 transition"
             >
               <Sliders size={13} className="text-zinc-400" />
-              <span>管理模型設定檔…</span>
+              <span>Manage profiles…</span>
             </button>
           </div>
         </div>
@@ -130,7 +130,7 @@ export const ModelPicker = React.memo<ModelPickerProps>(({
 
       {menu === 'thinking' && (
         <div className="absolute left-0 bottom-full mb-2 w-36 z-30 rounded-xl border border-zinc-700/80 bg-overlay shadow-2xl py-1.5 text-xs">
-          <div className="px-3 py-1 text-2xs text-fg-subtle">思考強度</div>
+          <div className="px-3 py-1 text-2xs text-fg-subtle">Thinking level</div>
           {/* 由高到低排列 */}
           {[...thinkingLevels].reverse().map((l) => {
             const active = l === level;
