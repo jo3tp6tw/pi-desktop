@@ -69,9 +69,9 @@ const diffFromArgs = (tool: ToolCall): DiffLine[] => {
 
 const lineStyle: Record<DiffLineKind, string> = {
   add: 'bg-emerald-500/10 text-emerald-300',
-  del: 'bg-rose-500/10 text-rose-300',
+  del: 'bg-danger/10 text-danger',
   ctx: 'text-zinc-400',
-  skip: 'text-zinc-600 bg-zinc-800/40',
+  skip: 'text-fg-subtle bg-zinc-800/40',
 };
 
 const lineSign: Record<DiffLineKind, string> = { add: '+', del: '-', ctx: ' ', skip: ' ' };
@@ -100,73 +100,62 @@ export const DiffToolCard: React.FC<{
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen((v) => !v)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setOpen((v) => !v);
-          }
-        }}
-        title={open ? '收合' : '展開 diff'}
-        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left font-mono hover:text-zinc-100 transition-colors cursor-pointer select-none"
-      >
-        <Icon size={13} className="text-sky-400 shrink-0" />
-        <span className="shrink-0 text-sky-400 font-semibold">{tool.name}</span>
-        {path ? (
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              if (onOpenPath) {
-                e.stopPropagation();
-                onOpenPath(path);
-              }
-            }}
-            onKeyDown={(e) => {
-              if ((e.key === 'Enter' || e.key === ' ') && onOpenPath) {
-                e.preventDefault();
-                e.stopPropagation();
-                onOpenPath(path);
-              }
-            }}
+      {/* 標題列：鋪滿整列的透明按鈕負責展開；檔案路徑是疊在上面的另一個按鈕，避免按鈕包按鈕 */}
+      <div className="relative w-full py-1 flex items-center gap-2 text-zinc-300 text-sm hover:text-zinc-100 transition-colors select-none">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-label={`${tool.name} ${path}${added ? `, ${added} added` : ''}${removed ? `, ${removed} removed` : ''}`}
+          title={open ? 'Collapse' : 'Show diff'}
+          className="focus-ring-inset absolute inset-0 rounded"
+        />
+        <Icon size={13} className="text-fg-muted shrink-0" />
+        <span className="shrink-0 font-mono text-zinc-200 font-semibold">{tool.name}</span>
+        {path && onOpenPath ? (
+          <button
+            type="button"
+            onClick={() => onOpenPath(path)}
             title={path}
-            className="truncate text-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer text-left"
+            aria-label={`Open ${path}`}
+            className="relative z-10 min-w-0 truncate rounded font-mono text-fg-subtle hover:text-zinc-200 transition-colors text-left"
           >
+            {path}
+          </button>
+        ) : path ? (
+          <span title={path} className="min-w-0 truncate font-mono text-fg-subtle">
             {path}
           </span>
         ) : null}
         <span className="flex-1 min-w-0" />
-        {added > 0 && <span className="text-xs text-emerald-400 shrink-0 font-mono">+{added}</span>}
-        {removed > 0 && <span className="text-xs text-rose-400 shrink-0 font-mono">-{removed}</span>}
+        {added > 0 && <span className="text-xs text-emerald-400 shrink-0 tabular-nums">+{added}</span>}
+        {removed > 0 && <span className="text-xs text-danger shrink-0 tabular-nums">-{removed}</span>}
         {(running || failed) && (
-          <span className={`text-xs shrink-0 font-mono ${failed ? 'text-rose-400' : 'text-amber-400'}`}>
+          <span className={`text-xs shrink-0 ${failed ? 'text-danger' : 'text-warning'}`}>
             {tool.status}
           </span>
         )}
-        <span className="ml-auto shrink-0 text-zinc-500 pl-1">
+        <span className="ml-auto shrink-0 text-fg-subtle pl-1">
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </span>
       </div>
 
       {open && (
-        <div className="ml-5 mr-1.5 mb-1 rounded-md border border-[#2a2a30] bg-[#0e0e10] overflow-hidden">
+        <div className="ml-5 mr-1.5 mb-1 rounded-md border border-line bg-sunken overflow-hidden">
           {failed && tool.output && (
-            <div className="px-3 py-1.5 text-xs font-mono text-rose-400 border-b border-[#2a2a30] whitespace-pre-wrap break-words">
+            <div className="px-3 py-1.5 text-xs font-mono text-danger border-b border-line whitespace-pre-wrap break-words">
               {tool.output}
             </div>
           )}
           {lines.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-zinc-600 italic">（沒有可顯示的差異）</div>
+            <div className="px-3 py-2 text-xs text-fg-subtle italic">No changes to show</div>
           ) : (
             <div className="max-h-[420px] overflow-auto">
               <table className="w-full border-collapse text-xs leading-[1.55] font-mono">
                 <tbody>
                   {lines.map((l, i) => (
                     <tr key={i} className={lineStyle[l.kind]}>
-                      <td className="select-none text-right pl-2 pr-2 text-zinc-600 align-top w-[1%] whitespace-nowrap">
+                      <td className="select-none text-right pl-2 pr-2 text-fg-subtle align-top w-[1%] whitespace-nowrap">
                         {l.lineNo}
                       </td>
                       <td className="select-none pr-1 align-top w-[1%]">{lineSign[l.kind]}</td>

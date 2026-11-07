@@ -99,7 +99,7 @@ class PiProcess {
     this.process.on('close', (code) => {
       const intentional = this.disposed;
       console.log(`[PiProcess:${this.convId}] 已退出，Exit Code: ${code}`);
-      this.bridge.sendToRenderer('pi:status', { convId: this.convId, running: false, code });
+      this.bridge.sendToRenderer('pi:status', { convId: this.convId, running: false, code, intentional });
       this.disposed = true;
       this._rejectAll('process closed');
       // 非預期結束才需要讓前端脫離「載入中」
@@ -256,15 +256,8 @@ class PiProcess {
     }, 10000);
     if (res && res.success && res.data) {
       this.model = res.data;
-      this.bridge.sendToRenderer('pi:ready', {
-        convId: this.convId,
-        model: this.model,
-        thinkingLevel: this.thinkingLevel,
-        sessionId: this.sessionId,
-        sessionFile: this.sessionFile,
-        workspace: this.workspace,
-        core: this.bridge.activeCoreInfo,
-      });
+      // pi 換模型時會把思考等級夾到新模型支援的範圍，重新取狀態讓前端同步（applyState 會發 pi:ready）
+      await this.refreshState();
     }
     return res;
   }
@@ -275,16 +268,8 @@ class PiProcess {
       level,
     }, 10000);
     if (res && res.success) {
-      this.thinkingLevel = level;
-      this.bridge.sendToRenderer('pi:ready', {
-        convId: this.convId,
-        model: this.model,
-        thinkingLevel: this.thinkingLevel,
-        sessionId: this.sessionId,
-        sessionFile: this.sessionFile,
-        workspace: this.workspace,
-        core: this.bridge.activeCoreInfo,
-      });
+      // pi 會依模型夾住不支援的等級，以 get_state 回報的實際值為準
+      await this.refreshState();
     }
     return res;
   }
@@ -349,6 +334,10 @@ class PiBridge {
     this.sshManager = new SshManager(app);
     this.processes = new Map(); // convId -> PiProcess
     this.reclaimTimers = new Map(); // convId -> Timeout
+    // 對話選用的模型設定檔（程序重生後需重新套用）：convId -> { provider, modelId, thinkingLevel }
+    this.convModelSelections = new Map();
+    // 設定已變更、等跑完再重啟的對話
+    this.pendingRestarts = new Set();
     this.currentWorkspace = process.cwd();
     this.activeCoreInfo = null;
     this.activeConvId = null; // 目前畫面上開著的對話（閒置時保留，避免每次送出都重生）
@@ -391,7 +380,86 @@ class PiBridge {
     const proc = new PiProcess(this, convId, cwd || this.currentWorkspace, { sessionFile, ssh });
     this.processes.set(convId, proc);
     proc.start();
+    // 程序重生後，重新套用此對話先前選用的模型設定檔與思考等級
+    const sel = this.convModelSelections.get(convId);
+    if (sel) {
+      proc.ready = proc.ready.then(async () => {
+        if (proc.disposed) return;
+        if (sel.provider) {
+          const res = await proc.setModel(sel.provider, sel.modelId);
+          if (!res || res.success === false) {
+            // 設定檔已停用或不存在：模型改用環境預設，思考等級仍保留
+            if (sel.thinkingLevel) this.convModelSelections.set(convId, { thinkingLevel: sel.thinkingLevel });
+            else this.convModelSelections.delete(convId);
+          }
+        }
+        if (sel.thinkingLevel) await proc.setThinkingLevel(sel.thinkingLevel);
+      });
+    }
     return proc;
+  }
+
+  // 對話切換到某個模型設定檔（provider 為 models.json 中的 pui-* 供應商）。
+  // 設定檔有預設思考等級就套用，沒有則沿用此對話目前選的等級。
+  async selectModelForConv(convId, { provider, modelId, thinkingLevel }) {
+    const level = thinkingLevel || this.convModelSelections.get(convId)?.thinkingLevel;
+    const proc = this.processes.get(convId);
+    if (!proc || proc.disposed) {
+      // 程序尚未啟動：先記下，啟動時套用
+      this.convModelSelections.set(convId, { provider, modelId, thinkingLevel: level });
+      return { success: true, deferred: true };
+    }
+    await proc.ready;
+    const res = await proc.setModel(provider, modelId);
+    if (!res || res.success === false) return { success: false, error: res?.error || 'Could not switch model' };
+    this.convModelSelections.set(convId, { provider, modelId, thinkingLevel: level });
+    if (level) await proc.setThinkingLevel(level);
+    return { success: true };
+  }
+
+  // 對話切換思考等級（記下以便程序重生後重新套用）
+  async setThinkingForConv(convId, level) {
+    const sel = this.convModelSelections.get(convId) || {};
+    this.convModelSelections.set(convId, { ...sel, thinkingLevel: level });
+    const proc = this.processes.get(convId);
+    if (!proc || proc.disposed) return { success: true, deferred: true };
+    await proc.ready;
+    const res = await proc.setThinkingLevel(level);
+    if (!res || res.success === false) return { success: false, error: res?.error || 'Could not change thinking level' };
+    return { success: true, level: proc.thinkingLevel };
+  }
+
+  // 模型設定變更後重啟某環境的對話程序（pi 執行中不會重讀 models.json）。
+  // 閒置的立即重生並載回原 session；執行中的等跑完再重啟。
+  restartEnvProcesses(matchesEnv) {
+    let restarted = 0;
+    let deferred = 0;
+    for (const [convId, proc] of Array.from(this.processes.entries())) {
+      if (proc.disposed || !matchesEnv(proc.ssh)) continue;
+      if (proc.isStreaming) {
+        this.pendingRestarts.add(convId);
+        deferred++;
+        continue;
+      }
+      this.respawn(convId, proc);
+      restarted++;
+    }
+    return { restarted, deferred };
+  }
+
+  // 正在檢視的對話立即重生（畫面上的模型資訊才會更新）；其他對話直接回收，下次送出時再以新設定啟動
+  respawn(convId, proc) {
+    if (this.activeConvId !== convId) {
+      this.disposeProcess(convId);
+      return;
+    }
+    const opts = {
+      cwd: proc.workspace,
+      sessionFile: proc.sessionFile || proc.requestedSessionFile || undefined,
+      ssh: proc.ssh,
+    };
+    this.disposeProcess(convId);
+    this.ensureSession(convId, opts);
   }
 
   getProcess(convId) {
@@ -477,6 +545,14 @@ class PiBridge {
   onSettled(convId) {
     const proc = this.processes.get(convId);
     if (proc) proc.isStreaming = false;
+    // 執行中被延後的設定重啟
+    if (this.pendingRestarts.has(convId)) {
+      this.pendingRestarts.delete(convId);
+      if (proc && !proc.disposed) {
+        this.respawn(convId, proc);
+        return;
+      }
+    }
     // 非當前檢視的對話，跑完後回收
     if (this.activeConvId !== convId) {
       this.scheduleReclaim(convId);
@@ -993,7 +1069,7 @@ class PiBridge {
       const content = fs.readFileSync(filePath, 'utf-8');
       const parsed = this._parseSessionData(content);
       if (targetLeafId !== null && !parsed.byId.has(targetLeafId)) {
-        return { success: false, error: `找不到分支節點: ${targetLeafId}` };
+        return { success: false, error: `Branch node not found: ${targetLeafId}` };
       }
       const cursorEntry = {
         type: 'custom',
@@ -1024,7 +1100,7 @@ class PiBridge {
       const parsed = this._parseSessionData(content);
       const userEntry = this._resolveTargetUserEntry(parsed, targetSpec);
       if (!userEntry) {
-        return { success: false, error: '找不到目標訊息節點' };
+        return { success: false, error: 'Target message not found' };
       }
       const parentLeafId = userEntry.parentId ?? null;
       const cursorEntry = {
@@ -1054,13 +1130,13 @@ class PiBridge {
       const parsed = this._parseSessionData(content);
       const userEntry = this._resolveTargetUserEntry(parsed, targetSpec);
       if (!userEntry) {
-        return { success: false, error: '找不到要分支的目標訊息節點' };
+        return { success: false, error: 'Message to branch from not found' };
       }
 
       const { chain, header, labelsById, labelTimestampsById, isUserMessageEntry } = parsed;
       const userIdx = chain.findIndex((e) => e.id === userEntry.id);
       if (userIdx === -1) {
-        return { success: false, error: '目標訊息不在目前分支路徑上' };
+        return { success: false, error: 'Target message is not on the current branch' };
       }
 
       // 包含此使用者訊息與該回合後續的 AI 回覆/工具紀錄（直到下一則使用者訊息前）
@@ -1117,14 +1193,14 @@ class PiBridge {
 
       // 替新分支對話加上清楚的名稱後綴
       const meta = this.readSessionMeta(filePath);
-      const baseTitle = (meta.name || meta.firstUser || '對話').replace(/\s+/g, ' ').trim().slice(0, 45);
+      const baseTitle = (meta.name || meta.firstUser || 'Conversation').replace(/\s+/g, ' ').trim().slice(0, 45);
       const infoId = this._genEntryId(usedIds);
       const infoEntry = {
         type: 'session_info',
         id: infoId,
         parentId: prevId,
         timestamp: iso,
-        name: `${baseTitle} (分支)`,
+        name: `${baseTitle} (branch)`,
       };
 
       const outLines = [
@@ -1156,7 +1232,7 @@ class PiBridge {
       const parsed = this._parseSessionData(content);
       const userEntry = this._resolveTargetUserEntry(parsed, targetSpec);
       if (!userEntry) {
-        return { success: false, error: '找不到要標記書籤的訊息節點' };
+        return { success: false, error: 'Message to bookmark not found' };
       }
       const cleanLabel = targetSpec.label ? String(targetSpec.label).trim() : undefined;
       const labelEntry = {
@@ -1189,13 +1265,13 @@ class PiBridge {
       const parsed = this._parseSessionData(content);
       const userEntry = this._resolveTargetUserEntry(parsed, targetSpec);
       if (!userEntry) {
-        return { success: false, error: '找不到目標訊息節點' };
+        return { success: false, error: 'Target message not found' };
       }
 
       const { chain, byId, isUserMessageEntry } = parsed;
       const userIdx = chain.findIndex((e) => e.id === userEntry.id);
       if (userIdx === -1) {
-        return { success: false, error: '目標訊息不在目前分支路徑上' };
+        return { success: false, error: 'Target message is not on the current branch' };
       }
 
       // 收集此回合內所有可透過 context_edit 編輯的訊息（user + assistant + toolResult）
@@ -1369,7 +1445,7 @@ class PiBridge {
         if (code === 0 && fs.existsSync(outputPath)) {
           resolve({ success: true, path: outputPath });
         } else {
-          resolve({ success: false, error: stderr.trim() || `匯出程序結束碼 ${code}` });
+          resolve({ success: false, error: stderr.trim() || `Export exited with code ${code}` });
         }
       });
     });

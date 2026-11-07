@@ -12,7 +12,15 @@ interface ResizeHandleProps {
   onReset?: () => void;
   /** 無障礙標籤 */
   ariaLabel?: string;
+  /** 這條分隔線控制的面板目前寬度與上下限（給螢幕閱讀器與 Home / End 使用） */
+  value: number;
+  min: number;
+  max: number;
+  /** 受控面板在分隔線右側（右欄）：分隔線往右移時面板變窄 */
+  panelAfter?: boolean;
 }
+
+const KEY_STEP = 16;
 
 /**
  * 垂直分隔線：可像 VS Code 一樣按住拖曳來調整左右欄寬。
@@ -22,10 +30,15 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = ({
   onResize,
   onResizeEnd,
   onReset,
-  ariaLabel = '調整欄位寬度',
+  ariaLabel = 'Resize column',
+  value,
+  min,
+  max,
+  panelAfter = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const lastX = useRef(0);
+  const saveTimer = useRef<number>();
 
   // 用 ref 保存 callback，避免拖曳期間因父層 re-render 造成監聽器被重新註冊
   const onResizeRef = useRef(onResize);
@@ -73,16 +86,38 @@ export const ResizeHandle: React.FC<ResizeHandleProps> = ({
     };
   }, [isDragging]);
 
+  useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 把「面板要變成多寬」換算成分隔線的位移量（右欄方向相反）
+    const toWidth = (width: number) => onResize(panelAfter ? value - width : width - value);
+    if (e.key === 'ArrowLeft') onResize(-KEY_STEP);
+    else if (e.key === 'ArrowRight') onResize(KEY_STEP);
+    else if (e.key === 'Home') toWidth(min);
+    else if (e.key === 'End') toWidth(max);
+    else if (e.key === 'Enter') onReset?.();
+    else return;
+    e.preventDefault();
+    // 連續按鍵時只在停下來後保存一次；延後到父層用新寬度重新渲染之後
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => onResizeEndRef.current?.(), 300);
+  };
+
   return (
     <div
       role="separator"
+      tabIndex={0}
       aria-orientation="vertical"
       aria-label={ariaLabel}
-      title="拖曳調整寬度，雙擊還原預設"
+      aria-valuenow={Math.round(value)}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      title="Drag or use arrow keys to resize, double-click to reset"
       onMouseDown={handleMouseDown}
       onDoubleClick={onReset}
-      className={`group relative z-30 w-1 shrink-0 cursor-col-resize touch-none transition-colors ${
-        isDragging ? 'bg-blue-500/70' : 'bg-transparent hover:bg-blue-500/40'
+      onKeyDown={handleKeyDown}
+      className={`group relative z-30 w-1 shrink-0 cursor-col-resize touch-none transition-colors focus-visible:outline-none focus-visible:bg-primary ${
+        isDragging ? 'bg-primary/70' : 'bg-transparent hover:bg-primary/40'
       }`}
     >
       {/* 加大可點擊範圍（左右各延伸 3px），但不影響視覺上的細線 */}

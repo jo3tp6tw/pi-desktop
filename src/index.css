@@ -5,6 +5,109 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============ 語意色彩 token ============ */
+/* 值為「R G B」，由 tailwind.config.js 的 token() 包成 rgb(... / alpha)。
+   對比值皆以 canvas / surface / overlay / raised 四種底色實測。 */
+@layer base {
+  :root {
+    /* 表面：由深到淺 */
+    --sunken: 16 16 18; /* #101012 終端機、diff、程式碼區塊 */
+    --canvas: 18 18 20; /* #121214 中欄、檔案樹 */
+    --surface: 24 24 27; /* #18181b 側欄、右欄 */
+    --surface-2: 21 21 24; /* #151518 頂列、工具列 */
+    --overlay: 31 31 35; /* #1f1f23 彈窗、選單 */
+    --raised: 39 39 42; /* #27272a 泡泡、hover 底 */
+    --line: 39 39 42; /* #27272a 分隔線 */
+    --line-strong: 63 63 70; /* #3f3f46 彈窗、輸入框邊框 */
+
+    /* 文字：由強到弱 */
+    --fg-strong: 244 244 245; /* zinc-100 標題、主要內容 */
+    --fg: 212 212 216; /* zinc-300 一般文字 */
+    --fg-muted: 161 161 170; /* zinc-400 說明文字，≥5.81:1 */
+    --fg-subtle: 144 144 152; /* #909098 時間、大小等資訊，≥4.70:1 */
+    --fg-disabled: 82 82 91; /* zinc-600 僅限停用狀態（WCAG 豁免） */
+
+    /* 語意色：每個顏色只代表一件事 */
+    --primary: 129 140 248; /* indigo-400 主要操作的文字、焦點、指示 */
+    --primary-solid: 79 70 229; /* indigo-600 實心按鈕，白字 6.29:1 */
+    --danger: 248 113 113; /* red-400 錯誤、刪除 */
+    --danger-solid: 220 38 38; /* red-600 實心危險按鈕，白字 4.83:1 */
+    --success: 52 211 153; /* emerald-400 */
+    --warning: 251 191 36; /* amber-400 執行中、警告 */
+    --remote: 103 232 249; /* cyan-300 SSH 遠端環境 */
+    --link: 96 165 250; /* blue-400 Markdown 連結 */
+  }
+
+  /* 鍵盤焦點：所有可操作元素一致的靛色外框（滑鼠點擊不會出現） */
+  :focus-visible {
+    outline: 2px solid rgb(var(--primary));
+    outline-offset: 2px;
+  }
+
+  /* 內容預設可選取；按鈕文字不可選，避免雙擊按鈕時反白 */
+  button {
+    user-select: none;
+  }
+}
+
+/* ============ 共用元件樣式 ============ */
+/* 只抽出重複出現的寫法；顏色等個別差異仍用 utility 覆寫 */
+@layer components {
+  /* 放在 overflow-hidden 容器裡的元素：焦點框改為內縮，避免被裁掉 */
+  .focus-ring-inset:focus-visible,
+  .focus-inset {
+    outline: 2px solid rgb(var(--primary));
+    outline-offset: -2px;
+  }
+
+  /* 工具列圖示按鈕：至少 24×24px；開關類按鈕以 aria-pressed 表示狀態 */
+  .icon-btn {
+    @apply inline-flex min-h-6 min-w-6 shrink-0 items-center justify-center rounded-md p-1 text-fg-muted transition-colors hover:bg-raised hover:text-fg-strong;
+  }
+  .icon-btn:disabled {
+    @apply cursor-default bg-transparent text-fg-disabled;
+  }
+  .icon-btn[aria-pressed='true'] {
+    @apply bg-primary/15 text-primary;
+  }
+  .icon-btn[aria-pressed='true']:hover {
+    @apply bg-primary/25;
+  }
+
+  /* 對話框按鈕 */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply btn text-zinc-300 hover:bg-raised;
+  }
+  .btn-primary {
+    @apply btn bg-primary-solid text-white hover:brightness-110;
+  }
+  .btn-danger {
+    @apply btn bg-danger-solid text-white hover:brightness-110;
+  }
+
+  /* 文字輸入框：聚焦時邊框與外圈都換成主要色 */
+  .field {
+    @apply w-full rounded-md border border-line-strong bg-canvas px-3 py-2 text-sm text-fg-strong outline-none transition-colors placeholder:text-fg-subtle focus:border-primary focus:ring-1 focus:ring-primary/40;
+  }
+
+  /* 側欄、檔案樹的列；目前所在的項目以 aria-current / aria-selected 標示 */
+  .list-row {
+    @apply flex cursor-pointer items-center rounded-md px-2.5 py-1.5 text-sm text-fg-muted transition-colors hover:bg-raised/50 hover:text-zinc-200;
+  }
+  .list-row[aria-current='page'],
+  .list-row[aria-selected='true'] {
+    @apply bg-primary/15 font-medium text-fg-strong;
+  }
+
+  /* 三欄最上方的標題列：統一 40px 高 */
+  .panel-header {
+    @apply flex h-10 shrink-0 items-center gap-1 border-b border-line bg-surface-2 px-2;
+  }
+}
+
 /* 自訂捲軸樣式 */
 ::-webkit-scrollbar {
   width: 6px;
@@ -16,12 +119,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: rgb(var(--raised));
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: rgb(var(--line-strong));
 }
 
 /* ============ Markdown 內文樣式 ============ */
@@ -29,7 +132,7 @@
   /* 對齊 text-sm 的新字級（原本 0.875rem / 14px） */
   font-size: 0.9375rem;
   line-height: 1.6;
-  color: #d4d4d8;
+  color: rgb(var(--fg));
   word-break: break-word;
 }
 .md-body > *:first-child {
@@ -48,7 +151,7 @@
 .md-body h5,
 .md-body h6 {
   font-weight: 600;
-  color: #f4f4f5;
+  color: rgb(var(--fg-strong));
   line-height: 1.3;
   margin: 1.1em 0 0.5em;
 }
@@ -57,7 +160,7 @@
 }
 .md-body h2 {
   font-size: 1.25em;
-  border-bottom: 1px solid #27272a;
+  border-bottom: 1px solid rgb(var(--line));
   padding-bottom: 0.3em;
 }
 .md-body h3 {
@@ -87,41 +190,41 @@
   margin: 0.25em 0;
 }
 .md-body a {
-  color: #60a5fa;
+  color: rgb(var(--link));
   text-decoration: none;
 }
 .md-body a:hover {
   text-decoration: underline;
 }
 .md-body strong {
-  color: #f4f4f5;
+  color: rgb(var(--fg-strong));
   font-weight: 600;
 }
 .md-body em {
   font-style: italic;
 }
 .md-body blockquote {
-  border-left: 3px solid #3f3f46;
+  border-left: 3px solid rgb(var(--line-strong));
   padding-left: 0.9em;
   margin: 0.7em 0;
-  color: #a1a1aa;
+  color: rgb(var(--fg-muted));
 }
 .md-body hr {
   border: 0;
-  border-top: 1px solid #27272a;
+  border-top: 1px solid rgb(var(--line));
   margin: 1.2em 0;
 }
 .md-body code {
-  font-family: Consolas, Menlo, Monaco, 'Courier New', monospace;
+  font-family: theme('fontFamily.mono');
   font-size: 0.85em;
-  background: rgba(63, 63, 70, 0.5);
+  background: rgb(var(--line-strong) / 0.5);
   padding: 0.15em 0.4em;
   border-radius: 4px;
   color: #f0abfc;
 }
 .md-body pre {
-  background: #0d1117;
-  border: 1px solid #27272a;
+  background: rgb(var(--sunken));
+  border: 1px solid rgb(var(--line));
   border-radius: 8px;
   padding: 0.9em 1em;
   overflow-x: auto;
@@ -145,17 +248,17 @@
 }
 .md-body th,
 .md-body td {
-  border: 1px solid #27272a;
+  border: 1px solid rgb(var(--line));
   padding: 0.45em 0.7em;
   text-align: left;
 }
 .md-body th {
-  background: #18181b;
-  color: #e4e4e7;
+  background: rgb(var(--surface));
+  color: rgb(var(--fg-strong));
   font-weight: 600;
 }
 .md-body tr:nth-child(even) td {
-  background: rgba(24, 24, 27, 0.5);
+  background: rgb(var(--surface) / 0.5);
 }
 .md-body img {
   max-width: 100%;
@@ -163,4 +266,17 @@
 }
 .md-body input[type='checkbox'] {
   margin-right: 0.4em;
+}
+
+/* ============ 減少動態 ============ */
+/* 轉圈圖示代表真的有工作在進行，不能直接停掉；開啟「減少動態」時改成不位移的明暗變化 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: reduced-spin 2s ease-in-out infinite;
+  }
+}
+@keyframes reduced-spin {
+  50% {
+    opacity: 0.35;
+  }
 }

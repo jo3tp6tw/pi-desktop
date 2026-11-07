@@ -173,7 +173,7 @@ export const Markdown: React.FC<MarkdownProps> = React.memo(({ children, onOpenP
                 onOpenPath(clickablePath);
               }}
               title={clickablePath}
-              className="!no-underline cursor-pointer text-indigo-300 hover:text-indigo-200 transition-colors"
+              className="!no-underline cursor-pointer text-primary hover:brightness-125 transition-colors"
             >
               {linkChildren}
             </a>

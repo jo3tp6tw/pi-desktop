@@ -10,7 +10,6 @@ import {
   User,
   Square,
   ArrowDown,
-  MessageSquare,
   Cpu,
   Brain,
   Sliders,
@@ -24,8 +23,13 @@ import {
   Eye,
   X,
   Trash2,
+  Monitor,
+  Server,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
-import type { Message, SubagentTask, ToolCall } from '../types';
+import type { ConnectionState, Message, SubagentTask, ThinkingLevel, ToolCall } from '../types';
+import { ModelPicker } from './ModelPicker';
 import { SubagentCard } from './SubagentCard';
 import { Markdown } from './Markdown';
 import { DiffToolCard, isFileEditTool } from './DiffToolCard';
@@ -42,7 +46,16 @@ interface ChatAreaProps {
   conversationId?: string;
   modelInfo?: string;
   thinkingLevel?: string;
+  /** 目前對話所在的 SSH 主機名稱；未提供表示在本機執行 */
+  envLabel?: string;
+  /** 此環境已啟用的模型設定檔（可在對話中切換） */
+  profiles?: { id: string; name: string; subtitle: string; isDefault: boolean }[];
+  activeProfileId?: string;
+  onSelectProfile?: (profileId: string) => void;
   onOpenModelSettings?: () => void;
+  /** 目前模型支援的思考等級 */
+  thinkingLevels?: ThinkingLevel[];
+  onSelectThinking?: (level: ThinkingLevel) => void;
   /** 單一使用者訊息粒度操作回呼 */
   onCopyMessage?: (text: string) => void;
   onSwitchBranch?: (message: Message, targetLeafId: string) => void;
@@ -52,7 +65,50 @@ interface ChatAreaProps {
   onSetMessageLabel?: (message: Message, label: string | undefined, userTurnIndex: number) => void;
   onToggleMessageOmit?: (message: Message, userTurnIndex: number) => void;
   onOpenPath?: (path: string) => void;
+  /** 目前對話的連線狀態（頂列右側顯示） */
+  connection?: ConnectionState;
+  onRetryConnection?: () => void;
 }
+
+/* ------------------------------------------------------------------ */
+/* 頂列右側的連線狀態：依實際狀態顯示，中斷時可重試                      */
+/* ------------------------------------------------------------------ */
+const STATUS_VIEW: Record<Exclude<ConnectionState['state'], 'failed'>, { dot: string; label: string }> = {
+  connecting: { dot: 'bg-fg-subtle', label: 'Connecting…' },
+  ready: { dot: 'bg-success', label: 'Ready' },
+  working: { dot: 'bg-warning', label: 'Working…' },
+  offline: { dot: 'bg-fg-disabled', label: 'Preview' },
+};
+
+const ConnectionStatus: React.FC<{ connection: ConnectionState; onRetry?: () => void }> = ({ connection, onRetry }) => {
+  if (connection.state === 'failed') {
+    return (
+      <div role="alert" className="flex min-w-0 items-center gap-2 text-xs">
+        <span className="flex shrink-0 items-center gap-1.5 text-danger">
+          <AlertCircle size={13} className="shrink-0" />
+          Disconnected
+        </span>
+        {connection.error && (
+          <span className="min-w-0 max-w-[240px] truncate select-text text-fg-subtle" title={connection.error}>
+            {connection.error}
+          </span>
+        )}
+        {onRetry && (
+          <button onClick={onRetry} className="btn-ghost shrink-0 px-2 py-0.5 text-xs">
+            Retry
+          </button>
+        )}
+      </div>
+    );
+  }
+  const view = STATUS_VIEW[connection.state];
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+      <span className={`w-2 h-2 rounded-full ${view.dot}`} />
+      <span>{view.label}</span>
+    </div>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* 純圖示 + 即時懸浮 Tooltip 按鈕元件（無文字、無表情符號）                */
@@ -74,7 +130,7 @@ const IconTipButton: React.FC<IconTipButtonProps> = ({
   onClick,
   disabled = false,
   active = false,
-  activeClassName = 'text-indigo-400 bg-indigo-500/15 border-indigo-500/30',
+  activeClassName = 'text-primary bg-primary/15 border-primary/30',
   danger = false,
   className = '',
 }) => {
@@ -85,9 +141,9 @@ const IconTipButton: React.FC<IconTipButtonProps> = ({
         onClick={onClick}
         disabled={disabled}
         aria-label={tooltip}
-        className={`p-1.5 rounded-md border transition flex items-center justify-center disabled:opacity-35 disabled:pointer-events-none ${
+        className={`min-h-6 min-w-6 p-1.5 rounded-md border transition flex items-center justify-center disabled:opacity-35 disabled:pointer-events-none ${
           danger
-            ? 'border-transparent text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20'
+            ? 'border-transparent text-zinc-400 hover:text-danger hover:bg-danger/10 hover:border-danger/20'
             : active
               ? activeClassName
               : 'border-transparent text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/90 hover:border-zinc-700/60'
@@ -95,8 +151,8 @@ const IconTipButton: React.FC<IconTipButtonProps> = ({
       >
         {icon}
       </button>
-      <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-40">
-        <div className="px-2 py-1 rounded-md bg-zinc-950/95 border border-zinc-700/80 text-[11px] font-sans text-zinc-200 whitespace-nowrap shadow-xl">
+      <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 opacity-0 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100 transition-opacity duration-150 z-40">
+        <div className="px-2 py-1 rounded-md bg-zinc-950/95 border border-zinc-700/80 text-2xs text-zinc-200 whitespace-nowrap shadow-xl">
           {tooltip}
         </div>
       </div>
@@ -174,47 +230,34 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={cycle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            cycle();
-          }
-        }}
-        title={state === 0 ? (summary ? `${summary} (點擊展開)` : '展開指令') : state === 1 ? '顯示輸出' : '收合'}
-        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left font-mono hover:text-zinc-100 transition-colors cursor-pointer select-none"
-      >
-        <Terminal size={13} className="text-purple-400 shrink-0" />
-        <span className="shrink-0 text-purple-400 font-semibold">{tool.name}</span>
+      {/* 標題列：鋪滿整列的透明按鈕負責展開；檔案路徑是疊在上面的另一個按鈕，避免按鈕包按鈕 */}
+      <div className="relative w-full py-1 flex items-center gap-2 text-zinc-300 text-sm hover:text-zinc-100 transition-colors select-none">
+        <button
+          type="button"
+          onClick={cycle}
+          aria-expanded={state > 0}
+          aria-label={`${tool.name} ${tool.status}${summary ? `: ${summary}` : ''}`}
+          title={state === 0 ? summary || 'Expand' : state === 1 ? 'Show output' : 'Collapse'}
+          className="focus-ring-inset absolute inset-0 rounded"
+        />
+        <Terminal size={13} className="text-fg-muted shrink-0" />
+        <span className="shrink-0 font-mono text-zinc-200 font-semibold">{tool.name}</span>
         {state === 0 && summary ? (
           filePathArg && onOpenPath ? (
             <>
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenPath(filePathArg);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onOpenPath(filePathArg);
-                  }
-                }}
+              <button
+                type="button"
+                onClick={() => onOpenPath(filePathArg)}
                 title={filePathArg}
-                className="truncate text-zinc-500 hover:text-zinc-200 transition-colors cursor-pointer text-left"
+                aria-label={`Open ${filePathArg}`}
+                className="relative z-10 min-w-0 truncate rounded font-mono text-fg-subtle hover:text-zinc-200 transition-colors text-left"
               >
                 {summary}
-              </span>
+              </button>
               <span className="flex-1 min-w-0" />
             </>
           ) : (
-            <span className="flex-1 min-w-0 truncate text-zinc-500 text-left" title={summary}>
+            <span className="flex-1 min-w-0 truncate font-mono text-fg-subtle text-left" title={summary}>
               {summary}
             </span>
           )
@@ -222,17 +265,17 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
           <span className="flex-1 min-w-0" />
         )}
         <span
-          className={`text-xs shrink-0 font-mono ${
+          className={`text-xs shrink-0 ${
             tool.status === 'failed'
-              ? 'text-rose-400'
+              ? 'text-danger'
               : running
-                ? 'text-amber-400'
-                : 'text-emerald-400/80'
+                ? 'text-warning'
+                : 'text-success'
           }`}
         >
           {tool.status}
         </span>
-        <span className="ml-auto shrink-0 text-zinc-500 pl-1">
+        <span className="ml-auto shrink-0 text-fg-subtle pl-1">
           {state === 0 ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
         </span>
       </div>
@@ -249,14 +292,14 @@ const ToolCallCard: React.FC<{ tool: ToolCall; onOpenPath?: (path: string) => vo
 
       {/* 第二段展開：輸出 */}
       {state === 2 && (
-        <div className="ml-5 mr-1.5 mb-1 border-l border-[#2a2a30] pl-3 max-w-full">
+        <div className="ml-5 mr-1.5 mb-1 border-l border-line pl-3 max-w-full">
           {output ? (
             <pre className="max-h-[320px] overflow-auto text-xs leading-[1.55] font-mono text-zinc-400 whitespace-pre-wrap break-words">
               {output}
             </pre>
           ) : (
-            <div className="text-xs text-zinc-600 italic">
-              {running ? '等待輸出…' : '（沒有輸出）'}
+            <div className="text-xs text-fg-subtle italic">
+              {running ? 'Waiting for output…' : 'No output'}
             </div>
           )}
         </div>
@@ -380,7 +423,7 @@ const MessageItem = React.memo<MessageItemProps>(({
       } ${message.omitted ? 'opacity-50' : ''}`}
     >
       {!isUser && (
-        <div className="w-7 h-7 rounded-lg bg-indigo-900/60 border border-indigo-700/50 flex items-center justify-center shrink-0 mt-0.5 text-indigo-300 shadow-sm">
+        <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5 text-primary shadow-sm">
           <Bot size={16} />
         </div>
       )}
@@ -388,15 +431,15 @@ const MessageItem = React.memo<MessageItemProps>(({
       <div className={`flex flex-col space-y-1.5 min-w-0 ${isUser ? 'max-w-[85%] items-end' : 'flex-1 min-w-0 items-stretch w-full'}`}>
         {/* 若使用者訊息有書籤標記，顯示於對話框右上角 */}
         {isUser && message.label && !isLabelOpen && (
-          <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-medium">
-            <Bookmark size={11} className="fill-amber-400/40 text-amber-400 shrink-0" />
+          <div className="flex items-center space-x-1 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-2xs font-medium">
+            <Bookmark size={11} className="fill-primary/40 text-primary shrink-0" />
             <span className="truncate max-w-[200px]">{message.label}</span>
           </div>
         )}
 
         {/* 使用者訊息原地編輯模式 */}
         {isUser && isEditing ? (
-          <div className="w-full min-w-[300px] sm:min-w-[440px] rounded-xl bg-zinc-900 border border-indigo-500/60 p-3 shadow-lg space-y-2">
+          <div className="w-full min-w-[300px] sm:min-w-[440px] rounded-xl bg-zinc-900 border border-primary/60 p-3 shadow-lg space-y-2">
             <textarea
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
@@ -411,12 +454,13 @@ const MessageItem = React.memo<MessageItemProps>(({
               }}
               rows={Math.min(8, Math.max(2, editText.split('\n').length))}
               autoFocus
-              className="w-full bg-zinc-950/70 border border-zinc-800 rounded-lg p-2.5 text-sm text-zinc-100 focus:outline-none focus:border-indigo-500/60 resize-y font-sans leading-relaxed"
+              aria-label="Edit message"
+              className="field rounded-lg bg-zinc-950/70 border-zinc-800 p-2.5 resize-y leading-relaxed"
             />
             <div className="flex items-center justify-end space-x-1">
               <IconTipButton
                 icon={<X size={14} />}
-                tooltip="取消編輯 (Esc)"
+                tooltip="Cancel (Esc)"
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsEditing(false);
@@ -424,10 +468,10 @@ const MessageItem = React.memo<MessageItemProps>(({
               />
               <IconTipButton
                 icon={<Send size={14} />}
-                tooltip="建立新分支並重新發送 (Enter)"
+                tooltip="Resend as new branch (Enter)"
                 disabled={!editText.trim() || isLoading}
                 active
-                activeClassName="text-white bg-indigo-600 hover:bg-indigo-500 border-indigo-500/80"
+                activeClassName="text-white bg-primary-solid hover:brightness-110 border-primary/80"
                 onClick={(e) => handleConfirmEdit(e)}
               />
             </div>
@@ -448,16 +492,16 @@ const MessageItem = React.memo<MessageItemProps>(({
                   <button
                     type="button"
                     onClick={() => toggleThinking(partKey)}
-                    className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left font-mono hover:text-zinc-100 transition-colors"
+                    className="focus-ring-inset w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left hover:text-zinc-100 transition-colors"
                   >
-                    <Sparkles size={13} className="text-amber-400 shrink-0" />
-                    <span className="shrink-0 text-amber-400 font-semibold">Thinking</span>
+                    <Sparkles size={13} className="text-fg-muted shrink-0" />
+                    <span className="shrink-0 text-fg-muted font-semibold">Thinking</span>
                     {!isOpen && preview && (
-                      <span className="flex-1 min-w-0 truncate text-zinc-500 text-left" title={preview}>
+                      <span className="flex-1 min-w-0 truncate text-fg-subtle text-left" title={preview}>
                         {preview}
                       </span>
                     )}
-                    <span className="ml-auto shrink-0 text-zinc-500 pl-1">
+                    <span className="ml-auto shrink-0 text-fg-subtle pl-1">
                       {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                     </span>
                   </button>
@@ -474,9 +518,9 @@ const MessageItem = React.memo<MessageItemProps>(({
               return isUser ? (
                 <div
                   key={index}
-                  className={`px-4 py-3 rounded-xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm select-text bg-zinc-800 text-zinc-100 rounded-br-xs border ${
+                  className={`px-4 py-3 rounded-xl text-sm leading-relaxed whitespace-pre-wrap shadow-sm bg-zinc-800 text-zinc-100 rounded-br-xs border ${
                     message.omitted
-                      ? 'border-amber-500/40 line-through decoration-zinc-500/50'
+                      ? 'border-dashed border-zinc-600 line-through decoration-zinc-500/50'
                       : 'border-zinc-700/60'
                   }`}
                 >
@@ -526,7 +570,7 @@ const MessageItem = React.memo<MessageItemProps>(({
         {/* 書籤標記編輯列 */}
         {isUser && isLabelOpen && !isEditing && (
           <div className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700/80 shadow-lg">
-            <Bookmark size={13} className="text-amber-400 shrink-0" />
+            <Bookmark size={13} className="text-primary shrink-0" />
             <input
               type="text"
               value={labelDraft}
@@ -540,13 +584,14 @@ const MessageItem = React.memo<MessageItemProps>(({
                   setIsLabelOpen(false);
                 }
               }}
-              placeholder="輸入書籤名稱..."
+              placeholder="Bookmark name"
+              aria-label="Bookmark name"
               autoFocus
-              className="bg-zinc-950/80 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-amber-500/60 w-40"
+              className="field w-40 rounded bg-zinc-950/80 border-zinc-800 px-2 py-0.5 text-xs"
             />
             <IconTipButton
               icon={<Check size={13} />}
-              tooltip="儲存書籤 (Enter)"
+              tooltip="Save bookmark (Enter)"
               active
               activeClassName="text-emerald-300 bg-emerald-500/15 border-emerald-500/30"
               onClick={(e) => handleSaveLabel(e)}
@@ -554,14 +599,14 @@ const MessageItem = React.memo<MessageItemProps>(({
             {message.label && (
               <IconTipButton
                 icon={<Trash2 size={13} />}
-                tooltip="移除書籤"
+                tooltip="Remove bookmark"
                 danger
                 onClick={handleRemoveLabel}
               />
             )}
             <IconTipButton
               icon={<X size={13} />}
-              tooltip="取消 (Esc)"
+              tooltip="Cancel (Esc)"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsLabelOpen(false);
@@ -578,17 +623,17 @@ const MessageItem = React.memo<MessageItemProps>(({
               <div className="flex items-center space-x-0.5 mr-1 px-1 py-0.5 rounded-md bg-zinc-900/90 border border-zinc-800/90">
                 <IconTipButton
                   icon={<ChevronLeft size={13} />}
-                  tooltip="切換至上一個平行分支"
+                  tooltip="Previous branch"
                   disabled={branchIndex <= 0 || isLoading}
                   onClick={handlePrevBranch}
                   className="!p-1"
                 />
-                <span className="px-1 text-[11px] font-mono text-zinc-300">
+                <span className="px-1 text-2xs tabular-nums text-zinc-300">
                   {branchIndex + 1} / {branchCount}
                 </span>
                 <IconTipButton
                   icon={<ChevronRight size={13} />}
-                  tooltip="切換至下一個平行分支"
+                  tooltip="Next branch"
                   disabled={branchIndex >= branchCount - 1 || isLoading}
                   onClick={handleNextBranch}
                   className="!p-1"
@@ -599,7 +644,7 @@ const MessageItem = React.memo<MessageItemProps>(({
             {/* 1. 複製訊息 */}
             <IconTipButton
               icon={copied ? <Check size={13} /> : <Copy size={13} />}
-              tooltip={copied ? '已複製訊息內容' : '複製訊息內容'}
+              tooltip={copied ? 'Copied' : 'Copy message'}
               active={copied}
               activeClassName="text-emerald-400 bg-emerald-500/15 border-emerald-500/30"
               onClick={handleCopy}
@@ -608,7 +653,7 @@ const MessageItem = React.memo<MessageItemProps>(({
             {/* 2. 原地編輯並重送（建立新分支） */}
             <IconTipButton
               icon={<Pencil size={13} />}
-              tooltip="編輯訊息並重新發送（自動建立新分支）"
+              tooltip="Edit and resend"
               disabled={isLoading}
               onClick={handleStartEdit}
             />
@@ -616,7 +661,7 @@ const MessageItem = React.memo<MessageItemProps>(({
             {/* 3. 重新生成此輪回應 */}
             <IconTipButton
               icon={<RotateCcw size={13} />}
-              tooltip="重新生成此輪 AI 回應（建立新分支）"
+              tooltip="Regenerate response"
               disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
@@ -627,7 +672,7 @@ const MessageItem = React.memo<MessageItemProps>(({
             {/* 4. 從此輪對話分叉出獨立的新對話檔 (Fork) */}
             <IconTipButton
               icon={<GitBranch size={13} />}
-              tooltip="從此處分叉為獨立的新對話 (Fork Session)"
+              tooltip="Fork into new conversation"
               disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
@@ -638,9 +683,8 @@ const MessageItem = React.memo<MessageItemProps>(({
             {/* 5. 標記書籤 (Label) */}
             <IconTipButton
               icon={<Bookmark size={13} />}
-              tooltip={message.label ? `編輯書籤：${message.label}` : '標記書籤 (Bookmark)'}
+              tooltip={message.label ? `Edit bookmark: ${message.label}` : 'Bookmark'}
               active={!!message.label || isLabelOpen}
-              activeClassName="text-amber-400 bg-amber-500/15 border-amber-500/30"
               onClick={(e) => {
                 e.stopPropagation();
                 setLabelDraft(message.label || '');
@@ -653,11 +697,10 @@ const MessageItem = React.memo<MessageItemProps>(({
               icon={message.omitted ? <Eye size={13} /> : <EyeOff size={13} />}
               tooltip={
                 message.omitted
-                  ? '此輪已從 AI 上下文隱藏 — 點擊恢復納入上下文'
-                  : '從 AI 上下文中隱藏此輪對話（節省 Token、不刪除紀錄）'
+                  ? 'Hidden from AI context — click to include'
+                  : 'Hide from AI context'
               }
               active={!!message.omitted}
-              activeClassName="text-amber-400 bg-amber-500/15 border-amber-500/30"
               disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
@@ -686,9 +729,11 @@ interface ChatInputProps {
   isLoading: boolean;
   onSendMessage: (text: string) => void;
   onStop: () => void;
+  /** 輸入框左下角的工具列（模型 / 思考強度切換） */
+  toolbar?: React.ReactNode;
 }
 
-const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop }) => {
+const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop, toolbar }) => {
   const [inputText, setInputText] = useState('');
 
   const submit = useCallback(() => {
@@ -708,33 +753,38 @@ const ChatInput = React.memo<ChatInputProps>(({ isLoading, onSendMessage, onStop
   };
 
   return (
-    <div className="p-3 border-t border-[#27272a] bg-[#141416]">
+    <div className="p-3 border-t border-line bg-surface-2">
       <div className="max-w-4xl mx-auto">
-        <div className="relative rounded-xl border border-zinc-700/60 bg-zinc-900/90 focus-within:border-indigo-500/70 focus-within:ring-1 focus-within:ring-indigo-500/30 transition shadow-lg">
+        <div className="relative rounded-xl border border-zinc-700/60 bg-zinc-900/90 focus-within:border-primary/70 focus-within:ring-1 focus-within:ring-primary/30 transition shadow-lg">
           <textarea
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="輸入問題或指令給 Pi Agent (Shift+Enter 換行，Enter 送出)..."
+            placeholder="Message Pi… (Shift+Enter for a new line)"
+            aria-label="Message Pi"
             rows={3}
-            className="w-full bg-transparent p-3 pb-9 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none font-sans"
+            className="w-full bg-transparent p-3 pb-11 text-sm text-zinc-100 placeholder:text-fg-subtle focus:outline-none resize-none font-sans"
           />
+
+          {toolbar && <div className="absolute bottom-2 left-2">{toolbar}</div>}
 
           {/* 輸入框底部的按鈕 */}
           <div className="absolute bottom-2.5 right-3 flex items-center space-x-2">
             {isLoading ? (
               <button
                 onClick={onStop}
-                className="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-sm font-medium flex items-center space-x-1.5 transition shadow"
+                className="px-3 py-1.5 rounded-lg bg-danger-solid/80 hover:bg-danger-solid text-white text-sm font-medium flex items-center space-x-1.5 transition shadow"
               >
                 <Square size={12} fill="white" />
-                <span>停止</span>
+                <span>Stop</span>
               </button>
             ) : (
               <button
                 onClick={submit}
                 disabled={!inputText.trim()}
-                className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white transition shadow"
+                aria-label="Send"
+                title="Send (Enter)"
+                className="p-1.5 rounded-lg bg-primary-solid hover:brightness-110 disabled:opacity-40 disabled:hover:brightness-100 text-white transition shadow"
               >
                 <Send size={15} />
               </button>
@@ -757,12 +807,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSendMessage,
   onStop,
   onInspectSubagent,
-  projectName = 'pi-ui',
-  projectPath = 'c:\\aa-project\\pi-ui',
+  projectName = '',
+  projectPath = '',
   conversationId,
   modelInfo,
   thinkingLevel,
+  envLabel,
+  profiles = [],
+  activeProfileId,
+  onSelectProfile,
   onOpenModelSettings,
+  thinkingLevels = ['off'],
+  onSelectThinking,
   onCopyMessage,
   onSwitchBranch,
   onEditAndResend,
@@ -771,6 +827,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSetMessageLabel,
   onToggleMessageOmit,
   onOpenPath,
+  connection = { state: 'connecting' },
+  onRetryConnection,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -810,41 +868,37 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 min-w-0 h-full flex flex-col bg-[#121214] text-zinc-100 overflow-hidden">
+    <div className="flex-1 min-w-0 h-full flex flex-col bg-canvas text-zinc-100 overflow-hidden">
       {/* 頂部會話導航列 */}
-      <header className="h-14 border-b border-[#27272a] px-4 flex items-center justify-between bg-[#141416] select-none">
-        <div
-          className="flex items-center text-xs text-zinc-500 font-mono truncate max-w-md select-text"
-          title={projectPath || projectName}
-        >
-          {projectPath || projectName}
-        </div>
-
-        <div className="flex items-center space-x-3 text-sm">
-          {/* 模型與推論參數設定按鈕 (簡潔乾淨圖示) */}
-          <button
-            onClick={onOpenModelSettings}
-            title="調整模型與細項參數 (Max Tokens, Thinking Effort 等)"
-            className="flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700/60 text-zinc-200 transition text-xs font-medium group shadow-sm"
-          >
-            <Cpu size={13} className="text-indigo-400 group-hover:text-indigo-300 transition" />
-            <span className="font-mono text-zinc-300 truncate max-w-[180px]">
-              {modelInfo || '模型載入中'}
+      <header className="panel-header justify-between px-4 select-none">
+        <div className="flex items-center space-x-2 min-w-0">
+          {/* 執行環境標籤：本機或 SSH 主機（模型設定也依此環境而定） */}
+          {envLabel ? (
+            <span
+              title={`Running on ${envLabel}`}
+              className="shrink-0 flex items-center space-x-1 text-2xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+            >
+              <Server size={11} />
+              <span className="truncate max-w-[140px]">{envLabel}</span>
             </span>
-            {thinkingLevel && thinkingLevel !== 'off' && (
-              <span className="flex items-center space-x-1 text-[11px] px-1.5 py-0.2 rounded bg-indigo-950/80 border border-indigo-800/60 text-indigo-300 font-mono">
-                <Brain size={11} className="text-indigo-400" />
-                <span>{thinkingLevel}</span>
-              </span>
-            )}
-            <Sliders size={12} className="text-zinc-400 group-hover:text-zinc-200 transition ml-0.5" />
-          </button>
-
-          <div className="flex items-center space-x-1.5 pl-2 border-l border-zinc-800 text-zinc-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-xs font-mono">Active</span>
+          ) : (
+            <span
+              title="Running locally"
+              className="shrink-0 flex items-center space-x-1 text-2xs px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700/60"
+            >
+              <Monitor size={11} />
+              <span>Local</span>
+            </span>
+          )}
+          <div
+            className="flex items-center text-xs text-fg-subtle font-mono truncate max-w-md select-text"
+            title={projectPath || projectName}
+          >
+            {projectPath || projectName}
           </div>
         </div>
+
+        <ConnectionStatus connection={connection} onRetry={onRetryConnection} />
       </header>
 
       {/* 對話訊息列表 */}
@@ -854,16 +908,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto px-5 py-5 space-y-4"
         >
-        {/* 空狀態：引導使用者從左側開啟對話 */}
+        {/* 空狀態 */}
         {messages.length === 0 && !isLoading && (
-          <div className="h-full flex flex-col items-center justify-center text-center select-none">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-900/40 border border-indigo-700/40 flex items-center justify-center text-indigo-300 mb-4">
-              <MessageSquare size={22} />
-            </div>
-            <h2 className="text-base font-medium text-zinc-200 mb-1.5">選擇一個對話開始</h2>
-            <p className="text-sm text-zinc-500 max-w-xs leading-relaxed">
-              從左側清單開啟歷史對話，或直接在下方輸入訊息來開始全新對話。
-            </p>
+          <div className="h-full flex items-center justify-center text-sm text-fg-subtle select-none">
+            No messages yet
           </div>
         )}
 
@@ -894,13 +942,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           });
         })()}
 
+        {/* 送出後、第一段回應抵達前 */}
+        {isLoading && (messages.length === 0 || messages[messages.length - 1].role === 'user') && (
+          <div role="status" className="flex space-x-3 max-w-4xl mx-auto w-full min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5 text-primary shadow-sm">
+              <Bot size={16} />
+            </div>
+            <div className="flex items-center gap-2 py-1 text-sm text-fg-muted">
+              <Loader2 size={13} className="animate-spin" />
+              Working…
+            </div>
+          </div>
+        )}
+
         </div>
 
         {/* 不在最下方時才顯示「回到最下面」懸浮按鈕 */}
         {showScrollButton && (
           <button
             onClick={() => scrollToBottom()}
-            title="回到最下面"
+            title="Scroll to bottom"
             className="absolute bottom-4 right-6 z-10 w-8 h-8 rounded-full bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 shadow-lg flex items-center justify-center transition"
           >
             <ArrowDown size={16} />
@@ -913,6 +974,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         isLoading={isLoading}
         onSendMessage={onSendMessage}
         onStop={onStop}
+        toolbar={
+          <ModelPicker
+            modelInfo={modelInfo}
+            envLabel={envLabel}
+            profiles={profiles}
+            activeProfileId={activeProfileId}
+            onSelectProfile={onSelectProfile}
+            onOpenModelSettings={onOpenModelSettings}
+            thinkingLevel={thinkingLevel}
+            thinkingLevels={thinkingLevels}
+            onSelectThinking={onSelectThinking}
+          />
+        }
       />
     </div>
   );

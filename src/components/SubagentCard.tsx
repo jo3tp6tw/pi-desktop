@@ -26,26 +26,26 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
     switch (agent.toLowerCase()) {
       case 'scout':
         return {
-          icon: <Search size={13} className="text-purple-400 shrink-0" />,
-          color: 'text-purple-400',
+          icon: <Search size={13} className="text-fg-muted shrink-0" />,
+          color: 'text-zinc-200',
           label: 'scout',
         };
       case 'planner':
         return {
-          icon: <Sparkles size={13} className="text-blue-400 shrink-0" />,
-          color: 'text-blue-400',
+          icon: <Sparkles size={13} className="text-fg-muted shrink-0" />,
+          color: 'text-zinc-200',
           label: 'planner',
         };
       case 'reviewer':
         return {
-          icon: <ShieldAlert size={13} className="text-amber-400 shrink-0" />,
-          color: 'text-amber-400',
+          icon: <ShieldAlert size={13} className="text-fg-muted shrink-0" />,
+          color: 'text-zinc-200',
           label: 'reviewer',
         };
       default:
         return {
-          icon: <Bot size={13} className="text-indigo-400 shrink-0" />,
-          color: 'text-indigo-400',
+          icon: <Bot size={13} className="text-fg-muted shrink-0" />,
+          color: 'text-zinc-200',
           label: agent || 'subagent',
         };
     }
@@ -58,18 +58,22 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsExpanded((v) => !v)}
-        title={isExpanded ? '收合子代理' : '展開子代理詳情'}
-        className="w-full py-1 flex items-center space-x-2 text-zinc-300 text-sm text-left font-mono hover:text-zinc-100 transition-colors"
-      >
+      {/* 標題列：鋪滿整列的透明按鈕負責展開；「Logs」是疊在上面的另一個按鈕，避免按鈕包按鈕 */}
+      <div className="relative w-full py-1 flex items-center gap-2 text-zinc-300 text-sm hover:text-zinc-100 transition-colors">
+        <button
+          type="button"
+          onClick={() => setIsExpanded((v) => !v)}
+          aria-expanded={isExpanded}
+          aria-label={`${info.label} ${task.status}${task.task ? `: ${task.task}` : ''}`}
+          title={isExpanded ? 'Collapse' : 'Expand'}
+          className="focus-ring-inset absolute inset-0 rounded"
+        />
         {info.icon}
         <span className={`shrink-0 ${info.color} font-semibold capitalize`}>
           {info.label}
         </span>
         {task.task ? (
-          <span className="flex-1 min-w-0 truncate text-zinc-500 text-left" title={task.task}>
+          <span className="flex-1 min-w-0 truncate text-fg-subtle text-left" title={task.task}>
             {task.task}
           </span>
         ) : (
@@ -77,45 +81,43 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
         )}
 
         {running && (
-          <span className="flex items-center space-x-1 text-xs text-amber-400 shrink-0 font-mono">
+          <span className="flex items-center space-x-1 text-xs text-warning shrink-0">
             <Loader2 size={11} className="animate-spin" />
-            <span>運行中</span>
+            <span>Running</span>
           </span>
         )}
         {completed && (
-          <span className="text-xs text-emerald-400/80 shrink-0 font-mono">完成</span>
+          <span className="text-xs text-success shrink-0">Done</span>
         )}
         {failed && (
-          <span className="text-xs text-rose-400 shrink-0 font-mono">失敗</span>
+          <span className="text-xs text-danger shrink-0">Failed</span>
         )}
 
         {onInspect && (
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              onInspect(task);
-            }}
-            title="在右側面板檢視此 Subagent 終端機日誌"
-            className="text-xs text-zinc-400 hover:text-zinc-200 px-1 py-0.5 rounded hover:bg-zinc-800 shrink-0 transition flex items-center space-x-0.5 cursor-pointer"
+          <button
+            type="button"
+            onClick={() => onInspect(task)}
+            title="Open logs in side panel"
+            className="relative z-10 text-xs text-zinc-400 hover:text-zinc-200 px-1 py-0.5 rounded hover:bg-zinc-800 shrink-0 transition flex items-center space-x-0.5"
           >
             <Eye size={11} />
-            <span>日誌</span>
-          </span>
+            <span>Logs</span>
+          </button>
         )}
 
-        <span className="ml-auto shrink-0 text-zinc-500 pl-1">
+        <span className="ml-auto shrink-0 text-fg-subtle pl-1">
           {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </span>
-      </button>
+      </div>
 
       {/* 展開後的詳細內容（思考過程、內部工具調用、產出） */}
       {isExpanded && (
-        <div className="ml-5 mr-1.5 mb-1 border-l border-[#2a2a30] pl-3 py-1 space-y-2 text-xs font-mono">
+        <div className="ml-5 mr-1.5 mb-1 border-l border-line pl-3 py-1 space-y-2 text-xs">
           {/* 思考過程 */}
           {task.thinking && (
             <div>
-              <div className="text-zinc-500 select-none mb-0.5">💭 思考過程：</div>
-              <div className="text-zinc-400 font-sans leading-relaxed whitespace-pre-wrap">
+              <div className="text-fg-subtle select-none mb-0.5">Thinking</div>
+              <div className="text-zinc-400 leading-relaxed whitespace-pre-wrap">
                 {task.thinking}
               </div>
             </div>
@@ -124,18 +126,18 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
           {/* 工具調用時間軸 */}
           {task.tools && task.tools.length > 0 && (
             <div>
-              <div className="text-zinc-500 select-none mb-1 flex items-center space-x-1">
+              <div className="text-fg-subtle select-none mb-1 flex items-center space-x-1">
                 <Terminal size={11} />
-                <span>內部調用動作 ({task.tools.length})：</span>
+                <span>Tool calls ({task.tools.length})</span>
               </div>
               <div className="space-y-1 pl-1">
                 {task.tools.map((tool, idx) => {
                   const argsStr = tool.args ? (typeof tool.args === 'string' ? tool.args : JSON.stringify(tool.args)) : '';
                   return (
                     <div key={idx} className="flex items-center space-x-1.5 text-zinc-300 min-w-0">
-                      <span className="text-zinc-600 shrink-0">•</span>
-                      <span className="text-purple-400 font-semibold shrink-0">{tool.name}</span>
-                      <span className="text-zinc-500 truncate flex-1 min-w-0" title={argsStr}>
+                      <span className="text-fg-subtle shrink-0">•</span>
+                      <span className="font-mono text-zinc-300 font-semibold shrink-0">{tool.name}</span>
+                      <span className="font-mono text-fg-subtle truncate flex-1 min-w-0" title={argsStr}>
                         {argsStr}
                       </span>
                     </div>
@@ -148,11 +150,11 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
           {/* 產出結論 */}
           {task.output && (
             <div>
-              <div className="text-zinc-500 select-none mb-0.5 flex items-center space-x-1">
+              <div className="text-fg-subtle select-none mb-0.5 flex items-center space-x-1">
                 <FileCode2 size={11} />
-                <span>回報結果：</span>
+                <span>Result</span>
               </div>
-              <div className="text-zinc-300 font-sans leading-relaxed whitespace-pre-wrap">
+              <div className="text-zinc-300 leading-relaxed whitespace-pre-wrap">
                 {task.output}
               </div>
             </div>
@@ -160,9 +162,8 @@ export const SubagentCard: React.FC<SubagentCardProps> = ({ task, onInspect }) =
 
           {/* 資源消耗統計 */}
           {task.tokensUsed && (
-            <div className="pt-1 text-zinc-500 flex justify-between">
-              <span>Token 消耗: {task.tokensUsed}</span>
-              <span className="text-emerald-500/80">Context 已釋放</span>
+            <div className="pt-1 text-fg-subtle tabular-nums flex justify-between">
+              <span>{task.tokensUsed} tokens</span>
             </div>
           )}
         </div>

@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Folder, 
   FolderPlus, 
-  Filter, 
   Plus, 
   ChevronDown, 
   ChevronRight, 
@@ -13,6 +12,7 @@ import {
   Server
 } from 'lucide-react';
 import type { Project, Session, CoreInfo } from '../types';
+import { contextMenuPoint, isContextMenuKey } from '../lib/a11y';
 
 interface SidebarProps {
   projects: Project[];
@@ -78,17 +78,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return bestId;
   }, [projects]);
 
-  const toggleProject = (projectId: string) => {
+  // 右鍵或 Shift+F10 / 選單鍵開啟選單
+  type MenuEvent = React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>;
+  const openProjectMenu = (e: MenuEvent, project: Project) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { x, y } = contextMenuPoint(e);
+    onProjectContextMenu?.(project, x, y);
+  };
+  const openSessionMenu = (e: MenuEvent, session: Session, project: Project) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { x, y } = contextMenuPoint(e);
+    onSessionContextMenu?.(session, project, x, y);
+  };
+
+  // 依畫面上目前的狀態切換（預設展開的專案還沒有記錄，不能用 !prev[id]）
+  const toggleProject = (projectId: string, isExpanded: boolean) => {
     setExpandedProjects((prev) => ({
       ...prev,
-      [projectId]: !prev[projectId],
+      [projectId]: !isExpanded,
     }));
   };
 
   return (
     <aside
       style={{ width }}
-      className="h-full shrink-0 bg-[#18181b] border-r border-[#27272a] flex flex-col justify-between select-none text-zinc-300 overflow-hidden"
+      className="h-full shrink-0 bg-surface border-r border-line flex flex-col justify-between select-none text-zinc-300 overflow-hidden"
       onContextMenu={(e) => {
         // 只有點在真正的空白處（非對話/專案列）才觸發
         if (e.target === e.currentTarget) {
@@ -97,7 +113,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }
       }}
     >
-      {/* 頂部區域 */}
+      {/* 頂部標題列：與中欄、右欄的第一列同高 */}
+      <div className="panel-header justify-between pl-3 pr-1.5 text-xs text-zinc-400">
+        <span className="font-semibold text-zinc-300">Projects</span>
+        <div className="flex items-center gap-0.5">
+          <button
+            title="Add SSH project"
+            onClick={onOpenSshModal}
+            className="icon-btn text-cyan-400 hover:text-cyan-300"
+          >
+            <Server size={15} />
+          </button>
+          <button
+            title="Add local folder"
+            onClick={onOpenFolder}
+            className="icon-btn"
+          >
+            <FolderPlus size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* 專案列表 */}
       <div
         className="flex-1 overflow-y-auto px-1.5 py-1.5"
         onContextMenu={(e) => {
@@ -109,68 +146,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         {/* Projects 區塊 */}
         <div className="mb-4">
-          <div className="flex items-center justify-between px-2 mb-2 text-[15.5px] font-semibold text-zinc-400">
-            <span className="text-[15.5px] font-medium text-zinc-300">Projects</span>
-            <div className="flex items-center space-x-1.5">
-              <button 
-                title="Filter projects" 
-                className="hover:text-zinc-100 p-1 rounded hover:bg-zinc-800 transition"
-              >
-                <Filter size={15} />
-              </button>
-              <button 
-                title="新增 SSH 遠端專案 (Native SSH)" 
-                onClick={onOpenSshModal}
-                className="text-cyan-400 hover:text-cyan-300 p-1 rounded hover:bg-zinc-800 transition"
-              >
-                <Server size={15} />
-              </button>
-              <button 
-                title="Open Folder / Add Local Project" 
-                onClick={onOpenFolder}
-                className="hover:text-zinc-100 p-1 rounded hover:bg-zinc-800 transition"
-              >
-                <FolderPlus size={16} />
-              </button>
-            </div>
-          </div>
-
           {/* 專案列表 */}
           <div className="space-y-1">
             {projects.map((project) => {
               // 預設只展開最新對話所在的專案，其餘收合
               const isExpanded = expandedProjects[project.id] ?? (project.id === mostRecentProjectId && !!project.sessions.length);
               return (
-                <div key={project.id} className="text-[16.5px]">
-                  {/* 專案資料夾名稱 */}
-                  <div
-                    onClick={() => toggleProject(project.id)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onProjectContextMenu?.(project, e.clientX, e.clientY);
-                    }}
-                    title={project.ssh ? `[SSH] ${project.ssh.host}:${project.path}` : project.path}
-                    className="flex items-center space-x-2.5 px-2.5 py-1.5 rounded-md cursor-pointer hover:bg-zinc-800/60 transition group text-zinc-300"
-                  >
-                    {project.ssh ? (
-                      <Server size={16} className="text-cyan-400 group-hover:text-cyan-300 shrink-0" />
-                    ) : (
-                      <Folder size={16} className="text-zinc-400 group-hover:text-zinc-200 shrink-0" />
-                    )}
-                    <span className="font-medium flex-1 truncate">{project.name}</span>
-                    {project.ssh && (
-                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono shrink-0">
-                        SSH
-                      </span>
-                    )}
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNewSession(project.id);
+                <div key={project.id} className="text-sm">
+                  {/* 專案資料夾名稱：展開/收合按鈕，「New chat」與它並列（不能包在按鈕裡） */}
+                  <div className="group flex items-center rounded-md transition-colors hover:bg-raised/50">
+                    <button
+                      onClick={() => toggleProject(project.id, isExpanded)}
+                      onContextMenu={(e) => openProjectMenu(e, project)}
+                      onKeyDown={(e) => {
+                        if (isContextMenuKey(e)) openProjectMenu(e, project);
                       }}
-                      title="New chat in this project"
-                      className="opacity-0 group-hover:opacity-100 hover:text-zinc-100 p-0.5 rounded transition shrink-0"
+                      aria-expanded={isExpanded}
+                      title={project.ssh ? `[SSH] ${project.ssh.host}:${project.path}` : project.path}
+                      className="list-row focus-ring-inset min-w-0 flex-1 gap-2.5 text-zinc-300 hover:bg-transparent"
+                    >
+                      {project.ssh ? (
+                        <Server size={16} className="text-cyan-400 group-hover:text-cyan-300 shrink-0" />
+                      ) : (
+                        <Folder size={16} className="text-zinc-400 group-hover:text-zinc-200 shrink-0" />
+                      )}
+                      <span className="font-medium flex-1 truncate text-left">{project.name}</span>
+                      {project.ssh && (
+                        <span className="text-2xs px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shrink-0">
+                          SSH
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => onNewSession(project.id)}
+                      title="New chat"
+                      aria-label={`New chat in ${project.name}`}
+                      className="icon-btn mr-1 shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
                     >
                       <Plus size={14} />
                     </button>
@@ -182,73 +193,77 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {project.sessions.map((session) => {
                         const isActive = session.id === activeSessionId;
                         return (
-                          <div
+                          <button
                             key={session.id}
                             onClick={() => onSelectSession(session, project)}
-                            onContextMenu={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onSessionContextMenu?.(session, project, e.clientX, e.clientY);
+                            onContextMenu={(e) => openSessionMenu(e, session, project)}
+                            onKeyDown={(e) => {
+                              if (isContextMenuKey(e)) openSessionMenu(e, session, project);
                             }}
                             title={session.filePath || session.title}
-                            className={`flex items-center justify-between px-2.5 py-1.5 rounded-md cursor-pointer text-[16.5px] transition group ${
-                              isActive
-                                ? 'bg-zinc-700/60 text-zinc-100 font-medium'
-                                : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
-                            }`}
+                            aria-current={isActive ? 'page' : undefined}
+                            className="list-row focus-ring-inset group w-full justify-between text-left"
                           >
                             <span className="truncate pr-2">{session.title}</span>
-                            <span className="text-[12px] text-zinc-500 whitespace-nowrap group-hover:text-zinc-400">
+                            <span className="text-2xs tabular-nums text-fg-subtle whitespace-nowrap group-hover:text-zinc-400">
                               {session.timeAgo}
                             </span>
-                          </div>
+                          </button>
                         );
                       })}
+                      {project.sessions.length === 0 && (
+                        <button
+                          onClick={() => onNewSession(project.id)}
+                          className="list-row w-full gap-2 pl-8 text-fg-subtle"
+                        >
+                          <Plus size={13} /> New chat
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
               );
             })}
+            {projects.length === 0 && (
+              <button onClick={onOpenFolder} className="list-row w-full gap-2 text-fg-subtle">
+                <FolderPlus size={14} /> Add folder
+              </button>
+            )}
           </div>
         </div>
 
       </div>
 
       {/* 底部工作區狀態 & 核心管理 */}
-      <div className="p-3 border-t border-[#27272a] bg-zinc-900/60 text-[15px] flex items-center justify-between text-zinc-400">
+      <div className="p-3 border-t border-line bg-zinc-900/60 text-xs flex items-center justify-between text-zinc-400">
         <button
           onClick={onOpenCoreManager}
-          title="點擊管理 Pi 核心與檢查更新"
+          title={coreInfo?.description || 'Pi core'}
           className="flex items-center space-x-2 truncate hover:text-zinc-200 transition text-left"
         >
-          <div 
-            className={`w-2 h-2 rounded-full shrink-0 ${
-              coreInfo?.type === 'user' ? 'bg-emerald-400' : coreInfo?.type === 'bundled' ? 'bg-blue-400' : 'bg-amber-400'
-            }`} 
-            title={coreInfo?.description || 'Pi RPC Ready'}
-          />
+          <div className={`w-2 h-2 rounded-full shrink-0 ${coreInfo ? 'bg-success' : 'bg-fg-disabled'}`} />
           <div className="truncate flex flex-col">
-            <span className="truncate font-mono text-[13px] font-medium text-zinc-200">
-              Pi Core v{coreInfo?.version || '1.3.0'}
+            <span className="truncate text-xs tabular-nums font-medium text-zinc-200">
+              Pi Core{coreInfo?.version ? ` v${coreInfo.version}` : ''}
             </span>
-            <span className="text-[13px] text-zinc-500 font-mono">
-              {coreInfo?.type === 'user' ? '已更新版' : coreInfo?.type === 'bundled' ? '內建封裝' : '系統全域'}
+            <span className="text-xs text-fg-subtle">
+              {!coreInfo ? 'Not loaded' : coreInfo.type === 'user' ? 'User install' : coreInfo.type === 'bundled' ? 'Bundled' : 'System PATH'}
             </span>
           </div>
         </button>
 
         <div className="flex items-center space-x-1">
-          <button 
-            title="模型與細項參數設定" 
+          <button
+            title="Model settings"
             onClick={onOpenModelSettings}
-            className="p-1.5 rounded-md hover:bg-zinc-800 hover:text-zinc-200 text-zinc-400 transition"
+            className="icon-btn p-1.5"
           >
             <Cpu size={14} />
           </button>
-          <button 
-            title="Pi 核心設定與更新" 
+          <button
+            title="Pi core settings"
             onClick={onOpenCoreManager}
-            className="p-1.5 rounded-md hover:bg-zinc-800 hover:text-zinc-200 text-zinc-400 transition"
+            className="icon-btn p-1.5"
           >
             <Settings size={14} />
           </button>

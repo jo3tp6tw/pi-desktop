@@ -51,7 +51,7 @@ class CoreManager {
             version: pkg.version || 'unknown',
             cliPath,
             baseDir: cand,
-            description: '使用者目錄已更新核心 (User Updated)',
+            description: 'User-installed core',
           };
         } catch (e) {}
       }
@@ -76,7 +76,7 @@ class CoreManager {
           version,
           cliPath: bundledCli,
           baseDir: bundledDir,
-          description: '專案內建基礎核心 (Bundled)',
+          description: 'Bundled core',
         };
       }
     }
@@ -88,7 +88,7 @@ class CoreManager {
       cliPath: null,
       command: 'pi',
       baseDir: null,
-      description: '系統全域 PATH (System Global)',
+      description: 'System PATH core',
     };
   }
 
@@ -133,7 +133,7 @@ class CoreManager {
       });
       req.setTimeout(8000, () => {
         req.destroy();
-        resolve({ success: false, currentVersion: current.version, error: '連線逾時' });
+        resolve({ success: false, currentVersion: current.version, error: 'Connection timed out' });
       });
     });
   }
@@ -160,20 +160,20 @@ class CoreManager {
       fs.mkdirSync(userDir, { recursive: true });
     }
 
-    logCallback(`[更新管理] 準備更新核心至版本: ${targetVersion}`);
-    logCallback(`[更新管理] 安裝目標目錄: ${userDir}`);
+    logCallback(`[update] Updating core to ${targetVersion}`);
+    logCallback(`[update] Install directory: ${userDir}`);
 
     return new Promise((resolve, reject) => {
       // 優先使用 npm install
       const cmd = `npm install --prefix "${userDir}" ${this.packageName}@${targetVersion} --omit=dev --no-audit --no-fund`;
-      logCallback(`[更新管理] 執行: ${cmd}`);
+      logCallback(`[update] Running: ${cmd}`);
 
       const child = exec(cmd, { cwd: userDir, windowsHide: true }, (error, stdout, stderr) => {
         if (error) {
-          logCallback(`[更新管理] npm 安裝失敗: ${error.message}`);
+          logCallback(`[update] npm install failed: ${error.message}`);
           return resolve({ success: false, error: error.message });
         }
-        logCallback(`[更新管理] 核心升級成功！`);
+        logCallback(`[update] Core updated`);
         const updated = this.resolveCore();
         resolve({ success: true, updatedVersion: updated.version });
       });
